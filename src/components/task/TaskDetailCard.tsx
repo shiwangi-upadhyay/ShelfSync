@@ -203,7 +203,7 @@ export default function TaskDetailCard({
               <Separator />
               <ProgressForm 
                 taskId={task._id} 
-                onProgressUpdated={() => onTaskUpdated?.(task)} 
+                onProgressUpdated={onTaskUpdated} 
               />
             </>
           )}

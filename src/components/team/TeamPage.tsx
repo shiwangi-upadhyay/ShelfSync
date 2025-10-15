@@ -242,12 +242,18 @@ export default function TeamDetailPage() {
     task.assignedTo.some(u => u._id === user._id)
   );
 
-  function handleTaskUpdated(updatedTask: Task) {
-    setTasks(prev =>
-      prev.map(t => (t._id === updatedTask._id ? updatedTask : t))
-    );
-  }
+  // function handleTaskUpdated(updatedTask: Task) {
+  //   setTasks(prev =>
+  //     prev.map(t => (t._id === updatedTask._id ? updatedTask : t))
+  //   );
+  // }
 
+  //refetch the updates
+  function refetchTasks() {
+  apiFetch(`/tasks/team/${teamId}`).then(res => {
+    if (res.ok) res.json().then(setTasks);
+  });
+}
   // Rendering logic for tabs -- ONLY render tab content, Topbar is provided by MainLayout!
   return (
     <div className="max-w-5xl mx-auto py-8">
@@ -265,7 +271,7 @@ export default function TeamDetailPage() {
               key={task._id}
               task={task}
               editable={true}
-              onTaskUpdated={handleTaskUpdated}
+              onTaskUpdated={refetchTasks}
             />
           ))}
         </div>

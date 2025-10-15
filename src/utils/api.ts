@@ -1,4 +1,5 @@
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
   const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
     credentials: "include",
     ...options,

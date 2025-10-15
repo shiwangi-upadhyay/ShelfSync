@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 interface ProgressFormProps {
   taskId: string;
-  onProgressUpdated?: () => void;
+  onProgressUpdated?: (updatedTask?: any) => void;
 }
 
 export default function ProgressForm({ taskId, onProgressUpdated }: ProgressFormProps) {
@@ -25,7 +25,9 @@ export default function ProgressForm({ taskId, onProgressUpdated }: ProgressForm
     if (res.ok) {
       setTitle("");
       setValue("");
-      if (onProgressUpdated) onProgressUpdated();
+      const updatedTaskRes = await apiFetch(`/tasks/${taskId}`);
+      const updatedTask = updatedTaskRes.ok ? await updatedTaskRes.json() : undefined;
+      if (onProgressUpdated) onProgressUpdated(updatedTask);
     } else {
       const data = await res.json();
       setError(data.error || "Failed to update progress");
