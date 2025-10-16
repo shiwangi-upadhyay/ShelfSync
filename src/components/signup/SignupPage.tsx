@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import Link from "next/link";
@@ -11,6 +12,8 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(""); // Optional: show success message
+
+  const router = useRouter();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +35,10 @@ export default function SignupPage() {
         setEmail("");
         setPassword("");
         // Optionally redirect to login page
+        setTimeout(() => {
+          router.push("/dashboard"); // Redirect to dashboard
+        }, 1200); // slight delay so user sees success message
+      
       }
     } catch (err) {
       setError("Network error. Please try again.");
@@ -71,7 +78,7 @@ export default function SignupPage() {
             {success && <div className="text-green-500 text-sm">{success}</div>}
             <Button type="submit">Sign Up</Button>
             <div className="mt-2 text-sm text-center">
-              <Link href="/login" className="underline">
+              <Link href="/" className="underline">
                 Already have an account?
               </Link>
             </div>

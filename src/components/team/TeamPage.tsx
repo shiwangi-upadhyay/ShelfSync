@@ -172,7 +172,7 @@ import { apiFetch } from "@/utils/api";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
 import TaskDetailCard from "../task/TaskDetailCard";
-import {TabType} from "../../types/type";
+import { TabType } from "../../types/type";
 
 type User = { _id: string; name: string; email: string; avatarUrl?: string };
 type Task = {
@@ -186,7 +186,6 @@ type Task = {
   progressFields: { title: string; value: string }[];
   comments: { text: string; by: { name: string } }[];
 };
-// type TabType = "messages" | "tasks" | "all" | "create";
 
 export default function TeamDetailPage() {
   const { teamId } = useParams();
@@ -225,7 +224,9 @@ export default function TeamDetailPage() {
       setLoading(false);
     }
     fetchAll();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [teamId, setTeam, setUser]);
 
   if (loading)
@@ -238,57 +239,54 @@ export default function TeamDetailPage() {
     );
   if (!team || !user) return <div>Team not found.</div>;
 
-  const yourTasks = tasks.filter(task =>
-    task.assignedTo.some(u => u._id === user._id)
+  const yourTasks = tasks.filter((task) =>
+    task.assignedTo.some((u) => u._id === user._id)
   );
 
-  // function handleTaskUpdated(updatedTask: Task) {
-  //   setTasks(prev =>
-  //     prev.map(t => (t._id === updatedTask._id ? updatedTask : t))
-  //   );
-  // }
-
-  //refetch the updates
+  // Refetch tasks after updates
   function refetchTasks() {
-  apiFetch(`/tasks/team/${teamId}`).then(res => {
-    if (res.ok) res.json().then(setTasks);
-  });
-}
-  // Rendering logic for tabs -- ONLY render tab content, Topbar is provided by MainLayout!
+    apiFetch(`/tasks/team/${teamId}`).then((res) => {
+      if (res.ok) res.json().then(setTasks);
+    });
+  }
+
+  // Tab content rendering
   return (
     <div className="max-w-5xl mx-auto py-8">
       {activeTab === "messages" && (
-        <div className="text-center text-lg text-gray-400 py-20">Coming soon</div>
+        <div className="text-center text-lg text-gray-400 py-20">
+          Coming soon
+        </div>
       )}
       {activeTab === "tasks" && (
         <div>
           <h2 className="text-2xl font-bold mb-4">Your Tasks</h2>
-          {yourTasks.length === 0 && (
-            <div className="text-muted-foreground">No tasks assigned to you.</div>
+          {yourTasks.length === 0 ? (
+            <div className="text-muted-foreground">
+              No tasks assigned to you.
+            </div>
+          ) : (
+            yourTasks.map((task) => (
+              <TaskDetailCard
+                key={task._id}
+                task={task}
+                editable={true}
+                onTaskUpdated={refetchTasks}
+              />
+            ))
           )}
-          {yourTasks.map(task => (
-            <TaskDetailCard
-              key={task._id}
-              task={task}
-              editable={true}
-              onTaskUpdated={refetchTasks}
-            />
-          ))}
         </div>
       )}
       {activeTab === "all" && (
         <div>
           <h2 className="text-2xl font-bold mb-4">All Tasks</h2>
-          {tasks.length === 0 && (
+          {tasks.length === 0 ? (
             <div className="text-muted-foreground">No tasks for this team.</div>
+          ) : (
+            tasks.map((task) => (
+              <TaskDetailCard key={task._id} task={task} editable={false} onTaskUpdated={refetchTasks} />
+            ))
           )}
-          {tasks.map(task => (
-            <TaskDetailCard
-              key={task._id}
-              task={task}
-              editable={false}
-            />
-          ))}
         </div>
       )}
     </div>

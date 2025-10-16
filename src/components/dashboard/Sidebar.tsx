@@ -67,13 +67,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/utils/api";
-import { Hash, Users, Plus, User, ChevronRight, Settings } from "lucide-react";
+import { Hash, Users, Plus, User, ChevronRight, Settings, UserLock } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 
-type Team = { _id: string; name: string; members: { _id: string; name: string }[] };
+type Team = {
+  _id: string;
+  name: string;
+  members: { _id: string; name: string }[];
+};
 type UserType = { name: string; avatarUrl?: string };
 
 export default function Sidebar() {
@@ -82,14 +86,18 @@ export default function Sidebar() {
   const [activeTeam, setActiveTeam] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch("/teams").then(res => res.ok ? res.json() : []).then(setTeams);
-    apiFetch("/me").then(res => res.ok ? res.json() : null).then(setUser);
+    apiFetch("/teams")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setTeams);
+    apiFetch("/me")
+      .then((res) => (res.ok ? res.json() : null))
+      .then(setUser);
   }, []);
 
   const getInitials = (name: string) => {
     return name
       .split(" ")
-      .map(n => n[0])
+      .map((n) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
@@ -100,17 +108,19 @@ export default function Sidebar() {
       {/* Workspace Header */}
       <div className="px-4 py-5 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center border border-gray-700 shadow-lg">
-            <span className="text-lg font-bold text-white">
-              {user?.name ? getInitials(user.name) : "S"}
-            </span>
-          </div>
+          <Link href="/dashboard">
+            <div className="w-10 h-10 bg-gradient-to-br from-gray-700 to-gray-900 rounded-lg flex items-center justify-center border border-gray-700 shadow-lg">
+              <span className="text-lg font-bold text-white">
+                {user?.name ? getInitials(user.name) : "S"}
+              </span>
+            </div>
+          </Link>
           <div className="flex-1">
             <h2 className="font-bold text-white text-base">Shelfexecution</h2>
             <p className="text-xs text-gray-400">Workspace</p>
           </div>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="h-8 w-8 text-gray-400 hover:text-white hover:bg-gray-800"
           >
@@ -128,8 +138,8 @@ export default function Sidebar() {
               Teams
             </span>
             <Link href="/teams/create">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 className="h-6 w-6 text-gray-400 hover:text-white hover:bg-gray-800"
               >
@@ -137,9 +147,9 @@ export default function Sidebar() {
               </Button>
             </Link>
           </div>
-          
+
           <div className="space-y-1">
-            {teams.map(team => (
+            {teams.map((team) => (
               <Link
                 key={team._id}
                 href={`/teams/${team._id}`}
@@ -150,32 +160,35 @@ export default function Sidebar() {
                     : "text-gray-300 hover:bg-gray-800/50 hover:text-white"
                 }`}
               >
-                <div className={`p-1.5 rounded-md ${
-                  activeTeam === team._id
-                    ? "bg-white/10"
-                    : "bg-gray-800 group-hover:bg-gray-700"
-                }`}>
-                  <Hash className="w-4 h-4" />
+                <div
+                  className={`p-1.5 rounded-md ${
+                    activeTeam === team._id
+                      ? "bg-white/10"
+                      : "bg-gray-800 group-hover:bg-gray-700"
+                  }`}
+                >
+                  <UserLock className="w-4 h-4" />
                 </div>
                 <span className="flex-1 font-medium text-sm truncate">
                   {team.name}
                 </span>
-                <Badge 
-                  variant="secondary" 
+                <Badge
+                  variant="secondary"
                   className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5"
                 >
                   {team.members.length}
                 </Badge>
+                <ChevronRight className="w-4 h-4" />
               </Link>
             ))}
-            
+
             {teams.length === 0 && (
               <div className="px-3 py-6 text-center">
                 <Users className="w-8 h-8 text-gray-600 mx-auto mb-2" />
                 <p className="text-xs text-gray-500">No teams yet</p>
                 <Link href="/teams/create">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="mt-3 bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
                   >
@@ -197,7 +210,7 @@ export default function Sidebar() {
               Direct Messages
             </span>
           </div>
-          
+
           <Link
             href="#"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-300 hover:bg-gray-800/50 hover:text-white transition-all group"

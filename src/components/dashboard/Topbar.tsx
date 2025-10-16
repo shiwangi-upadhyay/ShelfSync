@@ -182,34 +182,84 @@
 //   );
 // }
 
-"use client";
 import Link from "next/link";
-import { Search, Bell, Settings, ChevronDown, Plus, MessageCircle, FileText, Pin } from "lucide-react";
+import {
+  Search,
+  Bell,
+  Settings,
+  ChevronDown,
+  Plus,
+  MessageCircle,
+  FileText,
+  Pin,
+} from "lucide-react";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
+import { useRouter, usePathname } from "next/navigation";
 import { TabType } from "../../types/type";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useEffect, useRef, useState } from "react";
 
 export default function Topbar({
   workspace = "ShelfSync",
   memberAvatars = [],
   memberCount = 0,
+  showTabs = true,
 }: {
   workspace?: string;
   memberAvatars?: string[];
   memberCount?: number;
+  showTabs?: boolean;
 }) {
   const { team, user } = useTeam() ?? {};
+  const router = useRouter();
+  const pathname = usePathname();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const avatarRef = useRef<HTMLDivElement>(null);
   const { activeTab, setActiveTab } = useTab();
-  const isAdmin = team && user && team.admin._id === user._id;
+  const isAdmin = !!(team && user && team.admin && team.admin._id === user._id);
 
   const getInitials = (index: number) => {
     return `M${index + 1}`;
   };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (
+        avatarRef.current &&
+        !avatarRef.current.contains(e.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    }
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClick);
+    } else {
+      document.removeEventListener("mousedown", handleClick);
+    }
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [dropdownOpen]);
+
+  async function handleLogout() {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
+      method: "POST",
+      credentials: "include",
+    });
+    router.push("/");
+  }
+
+  // Handles tab click: sets activeTab and routes to team page if not there
+  function handleTabClick(tab: TabType) {
+    setActiveTab(tab);
+    if (team && pathname !== `/teams/${team._id}`) {
+      router.push(`/teams/${team._id}`);
+    }
+  }
 
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
@@ -223,7 +273,7 @@ export default function Topbar({
             </h1>
             <ChevronDown className="w-4 h-4 text-gray-400" />
           </div>
-          
+
           <div className="relative max-w-md flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
@@ -241,7 +291,10 @@ export default function Topbar({
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
                 {memberAvatars.slice(0, 4).map((url: string, idx: number) => (
-                  <Avatar key={idx} className="w-8 h-8 border-2 border-white shadow-sm">
+                  <Avatar
+                    key={idx}
+                    className="w-8 h-8 border-2 border-white shadow-sm"
+                  >
                     <AvatarImage src={url} />
                     <AvatarFallback className="bg-gray-200 text-gray-600 text-xs">
                       {getInitials(idx)}
@@ -250,7 +303,10 @@ export default function Topbar({
                 ))}
               </div>
               {memberCount > 4 && (
-                <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                <Badge
+                  variant="secondary"
+                  className="bg-gray-100 text-gray-600"
+                >
                   +{memberCount - 4}
                 </Badge>
               )}
@@ -260,94 +316,121 @@ export default function Topbar({
           <Separator orientation="vertical" className="h-6" />
 
           {/* Action Buttons */}
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           >
             <Bell className="w-4 h-4" />
           </Button>
 
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             size="icon"
             className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
           >
             <Settings className="w-4 h-4" />
           </Button>
 
-          <Avatar className="w-8 h-8 border border-gray-200 cursor-pointer hover:border-gray-300">
-            <AvatarImage src={user?.avatarUrl} />
-            <AvatarFallback className="bg-gray-900 text-white text-xs">
-              {user?.name ? user.name[0] : "U"}
-            </AvatarFallback>
-          </Avatar>
+          {/* User Avatar + Dropdown */}
+          <div className="relative" ref={avatarRef}>
+            <div
+              className="w-8 h-8 border border-gray-200 cursor-pointer hover:border-gray-300 rounded-full overflow-hidden"
+              onClick={() => setDropdownOpen((v) => !v)}
+            >
+              {user?.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 object-cover" />
+              ) : (
+                <div className="bg-gray-900 text-white flex items-center justify-center h-full">
+                  {user?.name ? user.name[0] : "U"}
+                </div>
+              )}
+            </div>
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border rounded shadow-lg z-50">
+                <button
+                  className="block w-full text-left px-4 py-2 text-gray-700 cursor-not-allowed"
+                  disabled
+                >
+                  Profile
+                </button>
+                <hr className="my-1" />
+                <button
+                  className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Bottom Section - Tabs */}
-      <div className="h-12 flex items-center px-6 bg-gray-50 border-t border-gray-200">
-        <nav className="flex items-center gap-1">
-          {/* Messages Tab */}
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab("messages")}
-            className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
-              activeTab === "messages"
-                ? "bg-white text-gray-900 shadow-sm font-medium"
-                : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-            }`}
-          >
-            <MessageCircle className="w-4 h-4" />
-            <span className="text-sm">Messages</span>
-          </Button>
+      {showTabs && (
+        <div className="h-12 flex items-center px-6 bg-gray-50 border-t border-gray-200">
+          <nav className="flex items-center gap-1">
+            {/* Messages Tab */}
+            <Button
+              variant="ghost"
+              onClick={() => handleTabClick("messages")}
+              className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
+                activeTab === "messages"
+                  ? "bg-white text-gray-900 shadow-sm font-medium"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+              }`}
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span className="text-sm">Messages</span>
+            </Button>
 
-          {/* Tasks Tab */}
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab("tasks")}
-            className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
-              activeTab === "tasks"
-                ? "bg-white text-gray-900 shadow-sm font-medium"
-                : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span className="text-sm">Tasks</span>
-          </Button>
+            {/* Tasks Tab */}
+            <Button
+              variant="ghost"
+              onClick={() => handleTabClick("tasks")}
+              className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
+                activeTab === "tasks"
+                  ? "bg-white text-gray-900 shadow-sm font-medium"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span className="text-sm">Tasks</span>
+            </Button>
 
-          {/* All Tasks Tab */}
-          <Button
-            variant="ghost"
-            onClick={() => setActiveTab("all")}
-            className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
-              activeTab === "all"
-                ? "bg-white text-gray-900 shadow-sm font-medium"
-                : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
-            }`}
-          >
-            <Pin className="w-4 h-4" />
-            <span className="text-sm">All Tasks</span>
-          </Button>
+            {/* All Tasks Tab */}
+            <Button
+              variant="ghost"
+              onClick={() => handleTabClick("all")}
+              className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
+                activeTab === "all"
+                  ? "bg-white text-gray-900 shadow-sm font-medium"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+              }`}
+            >
+              <Pin className="w-4 h-4" />
+              <span className="text-sm">All Tasks</span>
+            </Button>
 
-          {/* Create Task Button */}
-          {isAdmin && team && (
-            <>
-              <Separator orientation="vertical" className="h-6 mx-2" />
-              <Link href={`/teams/${team._id}/task/create`}>
-                <Button
-                  size="sm"
-                  onClick={() => setActiveTab("create")}
-                  className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white h-9 px-4"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span className="text-sm">Create Task</span>
-                </Button>
-              </Link>
-            </>
-          )}
-        </nav>
-      </div>
+            {/* Create Task Button */}
+            {isAdmin && team && (
+              <>
+                <Separator orientation="vertical" className="h-6 mx-2" />
+                <Link href={`/teams/${team._id}/task/create`}>
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab("create")}
+                    className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white h-9 px-4"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+      )}
     </div>
   );
 }

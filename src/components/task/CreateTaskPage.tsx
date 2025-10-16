@@ -2,18 +2,19 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { apiFetch } from "@/utils/api";
-import { 
-  Calendar, 
-  Clock, 
-  Flag, 
-  User, 
-  FileText, 
+import {
+  Calendar,
+  Clock,
+  Flag,
+  User,
+  FileText,
   Tag,
   ChevronDown,
   Plus,
   Trash2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Link,
 } from "lucide-react";
 
 export default function CreateTaskPage() {
@@ -30,7 +31,14 @@ export default function CreateTaskPage() {
       if (res.ok) {
         const teamData = await res.json();
         setTeam(teamData);
-        const initialTasks = teamData.members.map((m: any) => ({
+
+        // Only non-admins
+        const nonAdminMembers = teamData.members.filter(
+          (m: any) => m._id !== teamData.admin._id
+        );
+
+        // Create initial tasks only for non-admin members
+        const initialTasks = nonAdminMembers.map((m: any) => ({
           assignedTo: [m._id],
           desc: "",
           topic: "",
@@ -40,7 +48,6 @@ export default function CreateTaskPage() {
           priority: "medium",
         }));
         setTasks(initialTasks);
-        // Expand first task by default
         setExpandedTasks(new Set([0]));
       }
     }
@@ -54,7 +61,7 @@ export default function CreateTaskPage() {
   }
 
   function toggleExpanded(idx: number) {
-    setExpandedTasks(prev => {
+    setExpandedTasks((prev) => {
       const next = new Set(prev);
       if (next.has(idx)) {
         next.delete(idx);
@@ -67,19 +74,27 @@ export default function CreateTaskPage() {
 
   function getPriorityColor(priority: string) {
     switch (priority) {
-      case "high": return "text-red-600 bg-red-50";
-      case "medium": return "text-yellow-600 bg-yellow-50";
-      case "low": return "text-green-600 bg-green-50";
-      default: return "text-gray-600 bg-gray-50";
+      case "high":
+        return "text-red-600 bg-red-50";
+      case "medium":
+        return "text-yellow-600 bg-yellow-50";
+      case "low":
+        return "text-green-600 bg-green-50";
+      default:
+        return "text-gray-600 bg-gray-50";
     }
   }
 
   function getPriorityIcon(priority: string) {
     switch (priority) {
-      case "high": return <AlertCircle className="w-4 h-4" />;
-      case "medium": return <Flag className="w-4 h-4" />;
-      case "low": return <CheckCircle2 className="w-4 h-4" />;
-      default: return <Flag className="w-4 h-4" />;
+      case "high":
+        return <AlertCircle className="w-4 h-4" />;
+      case "medium":
+        return <Flag className="w-4 h-4" />;
+      case "low":
+        return <CheckCircle2 className="w-4 h-4" />;
+      default:
+        return <Flag className="w-4 h-4" />;
     }
   }
 
@@ -87,26 +102,26 @@ export default function CreateTaskPage() {
     e.preventDefault();
     setError("");
     if (!team) return setError("Team not loaded");
-    
+
     const userRes = await apiFetch("/me");
     const me = userRes.ok ? await userRes.json() : null;
-    
+
     if (!me || team.admin._id !== me._id)
       return setError("Only the team creator can assign tasks.");
-    
+
     const validTasks = tasks.filter(
       (t) => t.desc.trim() && t.assignedTo.length
     );
-    
+
     if (validTasks.length === 0)
       return setError("Please fill at least one task.");
-    
+
     const res = await apiFetch("/tasks", {
       method: "POST",
       body: JSON.stringify({ teamId, tasks: validTasks }),
       headers: { "Content-Type": "application/json" },
     });
-    
+
     if (res.ok) {
       router.push(`/teams/${teamId}`);
     } else {
@@ -115,19 +130,28 @@ export default function CreateTaskPage() {
     }
   }
 
-  const filledTasks = tasks.filter(t => t.desc.trim()).length;
-  const totalMembers = team?.members.length || 0;
+  // Always compute nonAdminMembers from team (so we sync indexes)
+  const nonAdminMembers = team
+    ? team.members.filter((m: any) => m._id !== team.admin._id)
+    : [];
+
+  const filledTasks = tasks.filter((t) => t.desc.trim()).length;
+  const totalMembers = nonAdminMembers.length;
 
   return (
     <div className="animate-in fade-in duration-500">
       {/* Header */}
       <div className="space-y-2">
-        <h1 className="text-4xl font-bold text-white">
-          Create Tasks
-        </h1>
-        <p className="text-gray-500">
-          Assign tasks to your team members
-        </p>
+        <div className="flex justify-between items-center">
+          <h1 className="text-4xl font-bold text-black">Create Tasks</h1>
+          <Link href={`/teams/${teamId}`}>
+            <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition">
+              ← Back to Team
+            </button>
+          </Link>
+        </div>
+
+        <p className="text-gray-500">Assign tasks to your team members</p>
       </div>
 
       {/* Progress Indicator */}
@@ -137,13 +161,20 @@ export default function CreateTaskPage() {
             Tasks filled: {filledTasks} / {totalMembers}
           </span>
           <span className="text-sm text-gray-500">
-            {totalMembers > 0 ? Math.round((filledTasks / totalMembers) * 100) : 0}%
+            {totalMembers > 0
+              ? Math.round((filledTasks / totalMembers) * 100)
+              : 0}
+            %
           </span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-          <div 
+          <div
             className="bg-blue-500 h-2 rounded-full transition-all duration-500 ease-out"
-            style={{ width: `${totalMembers > 0 ? (filledTasks / totalMembers) * 100 : 0}%` }}
+            style={{
+              width: `${
+                totalMembers > 0 ? (filledTasks / totalMembers) * 100 : 0
+              }%`,
+            }}
           />
         </div>
       </div>
@@ -163,7 +194,7 @@ export default function CreateTaskPage() {
       <form onSubmit={handleSubmit} className="space-y-3">
         {team &&
           tasks.map((task, idx) => {
-            const member = team.members[idx];
+            const member = nonAdminMembers[idx];
             const isExpanded = expandedTasks.has(idx);
             const isFilled = task.desc.trim().length > 0;
 
@@ -172,7 +203,7 @@ export default function CreateTaskPage() {
                 key={member._id}
                 className="bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-300 hover:border-gray-300 hover:shadow-sm"
                 style={{
-                  animation: `slideIn 0.3s ease-out ${idx * 0.05}s backwards`
+                  animation: `slideIn 0.3s ease-out ${idx * 0.05}s backwards`,
                 }}
               >
                 {/* Task Header - Collapsible */}
@@ -182,10 +213,14 @@ export default function CreateTaskPage() {
                   className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                      isFilled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {isFilled ? '✓' : idx + 1}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                        isFilled
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {isFilled ? "✓" : idx + 1}
                     </div>
                     <div className="text-left">
                       <div className="font-medium text-gray-900 flex items-center gap-2">
@@ -205,22 +240,28 @@ export default function CreateTaskPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     {task.priority && (
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                      <span
+                        className={`px-2 py-1 rounded text-xs font-medium ${getPriorityColor(
+                          task.priority
+                        )}`}
+                      >
                         {task.priority}
                       </span>
                     )}
-                    <ChevronDown 
+                    <ChevronDown
                       className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
-                        isExpanded ? 'rotate-180' : ''
+                        isExpanded ? "rotate-180" : ""
                       }`}
                     />
                   </div>
                 </button>
 
                 {/* Task Details - Expandable */}
-                <div 
+                <div
                   className={`overflow-hidden transition-all duration-300 ${
-                    isExpanded ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'
+                    isExpanded
+                      ? "max-h-[800px] opacity-100"
+                      : "max-h-0 opacity-0"
                   }`}
                 >
                   <div className="px-4 pb-4 pt-2 space-y-3 border-t border-gray-100">
@@ -234,7 +275,9 @@ export default function CreateTaskPage() {
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                         placeholder="What needs to be done?"
                         value={task.desc}
-                        onChange={(e) => handleTaskChange(idx, "desc", e.target.value)}
+                        onChange={(e) =>
+                          handleTaskChange(idx, "desc", e.target.value)
+                        }
                       />
                     </div>
 
@@ -249,7 +292,9 @@ export default function CreateTaskPage() {
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                           placeholder="Main topic"
                           value={task.topic}
-                          onChange={(e) => handleTaskChange(idx, "topic", e.target.value)}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "topic", e.target.value)
+                          }
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -261,7 +306,9 @@ export default function CreateTaskPage() {
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900 placeholder:text-gray-400"
                           placeholder="Subtopic"
                           value={task.subTopic}
-                          onChange={(e) => handleTaskChange(idx, "subTopic", e.target.value)}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "subTopic", e.target.value)
+                          }
                         />
                       </div>
                     </div>
@@ -277,7 +324,9 @@ export default function CreateTaskPage() {
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900"
                           type="date"
                           value={task.startDate}
-                          onChange={(e) => handleTaskChange(idx, "startDate", e.target.value)}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "startDate", e.target.value)
+                          }
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -289,7 +338,9 @@ export default function CreateTaskPage() {
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-gray-900"
                           type="date"
                           value={task.endDate}
-                          onChange={(e) => handleTaskChange(idx, "endDate", e.target.value)}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "endDate", e.target.value)
+                          }
                         />
                       </div>
                     </div>
@@ -301,18 +352,21 @@ export default function CreateTaskPage() {
                         Priority
                       </label>
                       <div className="grid grid-cols-3 gap-2">
-                        {['low', 'medium', 'high'].map((priority) => (
+                        {["low", "medium", "high"].map((priority) => (
                           <button
                             key={priority}
                             type="button"
-                            onClick={() => handleTaskChange(idx, "priority", priority)}
+                            onClick={() =>
+                              handleTaskChange(idx, "priority", priority)
+                            }
                             className={`px-3 py-2 rounded-lg border-2 transition-all font-medium text-sm capitalize flex items-center justify-center gap-2 ${
                               task.priority === priority
                                 ? `${getPriorityColor(priority)} border-current`
-                                : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                : "border-gray-200 text-gray-600 hover:border-gray-300"
                             }`}
                           >
-                            {task.priority === priority && getPriorityIcon(priority)}
+                            {task.priority === priority &&
+                              getPriorityIcon(priority)}
                             {priority}
                           </button>
                         ))}
@@ -332,7 +386,7 @@ export default function CreateTaskPage() {
             className="w-full bg-gray-900 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <CheckCircle2 className="w-5 h-5" />
-            Create {filledTasks} {filledTasks === 1 ? 'Task' : 'Tasks'}
+            Create {filledTasks} {filledTasks === 1 ? "Task" : "Tasks"}
           </button>
         </div>
       </form>
