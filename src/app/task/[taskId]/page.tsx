@@ -1,9 +1,12 @@
-// import TaskDetailPage from "@/components/task/TaskPage";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import TaskDetailPage from "@/components/task/TaskPage";
 
-// export default function Page() {
-//   // const [open, setOpen] = useState(true);
+export default function Page() {
+  // const [open, setOpen] = useState(true);
 
-//   return (
-//     <TaskDetailPage/>
-//   );
-// }
+  return (
+    <ProtectedRoute>
+      <TaskDetailPage/>
+    </ProtectedRoute>
+  );
+}

@@ -34,9 +34,10 @@ export default function LoginPage() {
       } else {
         // Optionally store JWT/token here (localStorage/cookie)
         // localStorage.setItem("token", data.token);
-        router.push("/dashboard");
+        router.push("/");
       }
     } catch (err) {
+      console.log(err);
       setError("Network error. Please try again.");
     }
   };
@@ -90,6 +91,7 @@ export default function LoginPage() {
           )}
           {showOtp && (
             <OTP
+              email={email}
               onVerified={() => {
                 setShowOtp(false);
                 setShowReset(true);

@@ -172,7 +172,7 @@ import { apiFetch } from "@/utils/api";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
 import TaskDetailCard from "../task/TaskDetailCard";
-import { TabType } from "../../types/type";
+
 
 type User = { _id: string; name: string; email: string; avatarUrl?: string };
 type Task = {

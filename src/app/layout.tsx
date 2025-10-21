@@ -1,8 +1,8 @@
-import MainLayout from "@/components/dashboard/MainLayout";
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Manrope, Outfit } from "next/font/google";
+// import { Geist, Geist_Mono } from "next/font/google";
+import {  Outfit } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 import AppMainLayout from "@/components/AppMainLayout";
 import { TeamProvider } from "@/context/TeamContext";
 import { TabProvider } from "@/context/TabContext";
@@ -18,10 +18,10 @@ import { TabProvider } from "@/context/TabContext";
 // });
 
 
-const manrope = Manrope({
-  subsets: ["latin"],
-  variable: "--font-manrope",
-});
+// const manrope = Manrope({
+//   subsets: ["latin"],
+//   variable: "--font-manrope",
+// });
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -47,6 +47,7 @@ export default function RootLayout({
         <TeamProvider>
           <TabProvider>
             <AppMainLayout>{children}</AppMainLayout>
+            <Toaster richColors position="top-right" />
           </TabProvider>
         </TeamProvider>
       </body>

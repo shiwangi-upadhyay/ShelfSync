@@ -80,7 +80,7 @@
 // }
 
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/utils/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -108,15 +108,15 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true);
 
   // Fetch task details
-  async function refreshTask() {
-    const res = await apiFetch(`/tasks/${taskId}`);
-    if (res.ok) setTask(await res.json());
-    setLoading(false);
-  }
+  const refreshTask = useCallback(async () => {
+  const res = await apiFetch(`/tasks/${taskId}`);
+  if (res.ok) setTask(await res.json());
+  setLoading(false);
+}, [taskId]);
 
   useEffect(() => {
     refreshTask();
-  }, [taskId]);
+  }, [refreshTask]);
 
   if (loading) return <div>Loading...</div>;
   if (!task) return <div>Task not found.</div>;

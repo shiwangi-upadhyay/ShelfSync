@@ -36,11 +36,12 @@ export default function SignupPage() {
         setPassword("");
         // Optionally redirect to login page
         setTimeout(() => {
-          router.push("/dashboard"); // Redirect to dashboard
+          router.push("/"); // Redirect to dashboard
         }, 1200); // slight delay so user sees success message
       
       }
     } catch (err) {
+      console.log(err);
       setError("Network error. Please try again.");
     }
   };
@@ -78,7 +79,7 @@ export default function SignupPage() {
             {success && <div className="text-green-500 text-sm">{success}</div>}
             <Button type="submit">Sign Up</Button>
             <div className="mt-2 text-sm text-center">
-              <Link href="/" className="underline">
+              <Link href="/login" className="underline">
                 Already have an account?
               </Link>
             </div>

@@ -13,19 +13,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Circle,
-  ArrowUp,
-  ArrowDown,
-  Minus,
 } from "lucide-react";
 import AddCommentForm from "@/components/task/AddCommentForm";
 import ProgressForm from "@/components/task/ProgressForm";
-import { useTeam } from "@/context/TeamContext";
-import { useState } from "react";
-import { apiFetch } from "@/utils/api";
 
 type User = { _id: string; name: string; email: string; avatarUrl?: string };
-type ProgressField = { title: string; value: string };
-type Comment = { text: string; by: { name: string } };
 type Task = {
   _id: string;
   desc: string;
@@ -34,8 +26,8 @@ type Task = {
   assignedTo: User[];
   startDate?: string;
   endDate?: string;
-  progressFields: ProgressField[];
-  comments: Comment[];
+  progressFields: { title: string; value: string }[];
+  comments: { text: string; by: { name: string } }[];
 };
 
 interface TaskDetailCardProps {
@@ -49,11 +41,6 @@ export default function TaskDetailCard({
   editable,
   onTaskUpdated,
 }: TaskDetailCardProps) {
-  const { user } = useTeam() ?? {};
-  const [editingProgress, setEditingProgress] = useState<null | ProgressField>(
-    null
-  );
-
   const getPriorityColor = (priority: string) => {
     switch (priority.toLowerCase()) {
       case "high":
@@ -113,18 +100,6 @@ export default function TaskDetailCard({
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
-
-  // Parse progress value to extract percentage
-  const parseProgress = (value: string) => {
-    const match = value.match(/(\d+)%/);
-    return match ? parseInt(match[1]) : 0;
-  };
-
-  // Generate mock trend for demo (in real app, compare with previous values)
-  const getTrend = (index: number) => {
-    const trends = [13.5, -13.5, 23.5];
-    return trends[index % trends.length] || 0;
   };
 
   return (
@@ -233,77 +208,48 @@ export default function TaskDetailCard({
 
             {/* Progress Tab */}
             <TabsContent value="progress" className="space-y-4 mt-0">
+              {/* Show Current Progress */}
               {task.progressFields && task.progressFields.length > 0 ? (
                 <div className="space-y-4">
-                  <h3 className="text-base font-semibold text-gray-900">
-                    Daily Progress
-                  </h3>
-                  {task.progressFields.map((pf, i) => {
-                    const progress = parseProgress(pf.value);
-                    const trend = getTrend(i);
-                    const isPositive = trend > 0;
-                    const isNegative = trend < 0;
-
-                    return (
-                      <div key={i} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="text-sm font-semibold text-gray-900">
-                              {pf.title}
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {pf.value}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="relative w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className="absolute left-0 top-0 h-full bg-gradient-to-r from-teal-400 to-teal-500 rounded-full transition-all duration-500"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-700">Current Progress</h3>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">
+                          {task.progressFields[task.progressFields.length - 1].value}
+                        </p>
                       </div>
-                    );
-                  })}
+                      
+                    </div>
+                  </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-sm text-gray-500">
-                  No progress updates yet
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-700">Current Progress</h3>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">Not Started</p>
+                    </div>
+                    
+                  </div>
                 </div>
               )}
 
+              {/* Update Progress Form (if editable) */}
               {editable && (
                 <>
                   <Separator className="my-4" />
                   <ProgressForm
                     taskId={task._id}
-                    onProgressUpdated={async (updatedTask) => {
-                      if (!updatedTask) return;
-                      // Get the last progress value (assuming newest is last)
-                      const lastProgress =
-                        updatedTask.progressFields?.[
-                          updatedTask.progressFields.length - 1
-                        ]?.value;
-
-                      let newStatus = "in progress";
-                      if (
-                        typeof lastProgress === "string" &&
-                        lastProgress.trim().endsWith("100%")
-                      ) {
-                        newStatus = "completed";
+                    progressValue={
+                      task.progressFields?.length
+                        ? task.progressFields[task.progressFields.length - 1].value
+                        : "0%"
+                    }
+                    onProgressUpdated={(updatedTask) => {
+                      if (updatedTask && onTaskUpdated) {
+                        onTaskUpdated(updatedTask as Task);
                       }
-
-                      // Only update if status changed
-                      if (updatedTask.status !== newStatus) {
-                        // PATCH status to backend
-                        await apiFetch(`/tasks/${updatedTask._id}/status`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ status: newStatus }),
-                          headers: { "Content-Type": "application/json" },
-                        });
-                      }
-                      // Refetch tasks in parent (this will update the UI)
-                      onTaskUpdated?.(updatedTask);
                     }}
                   />
                 </>
@@ -319,7 +265,7 @@ export default function TaskDetailCard({
                       key={i}
                       className="p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-2"
                     >
-                      {/* <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <Avatar className="w-6 h-6">
                           <AvatarFallback className="text-xs">
                             {getInitials(comment.by?.name)}
@@ -328,10 +274,8 @@ export default function TaskDetailCard({
                         <span className="text-sm font-medium text-gray-900">
                           {comment.by?.name || "Unknown"}
                         </span>
-                      </div> */}
-                      <p className="text-sm text-gray-700 pl-8">
-                        {comment.text}
-                      </p>
+                      </div>
+                      <p className="text-sm text-gray-700 pl-8">{comment.text}</p>
                     </div>
                   ))}
                 </div>

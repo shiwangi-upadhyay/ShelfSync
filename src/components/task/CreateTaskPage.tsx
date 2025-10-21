@@ -6,21 +6,40 @@ import {
   Calendar,
   Clock,
   Flag,
-  User,
   FileText,
   Tag,
   ChevronDown,
-  Plus,
-  Trash2,
   CheckCircle2,
   AlertCircle,
-  Link,
+  
 } from "lucide-react";
+import Link from "next/link";
+
+// Define types for team and task
+interface Member {
+  _id: string;
+  name: string;
+}
+
+interface TeamType {
+  admin: Member;
+  members: Member[];
+}
+
+interface TaskForm {
+  assignedTo: string[];
+  desc: string;
+  topic: string;
+  subTopic: string;
+  startDate: string;
+  endDate: string;
+  priority: "low" | "medium" | "high";
+}
 
 export default function CreateTaskPage() {
   const { teamId } = useParams();
-  const [team, setTeam] = useState<{ admin: any; members: any[] } | null>(null);
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [team, setTeam] = useState<TeamType | null>(null);
+  const [tasks, setTasks] = useState<TaskForm[]>([]);
   const [error, setError] = useState("");
   const [expandedTasks, setExpandedTasks] = useState<Set<number>>(new Set());
   const router = useRouter();
@@ -32,13 +51,11 @@ export default function CreateTaskPage() {
         const teamData = await res.json();
         setTeam(teamData);
 
-        // Only non-admins
         const nonAdminMembers = teamData.members.filter(
-          (m: any) => m._id !== teamData.admin._id
+          (m: Member) => m._id !== teamData.admin._id
         );
 
-        // Create initial tasks only for non-admin members
-        const initialTasks = nonAdminMembers.map((m: any) => ({
+        const initialTasks = nonAdminMembers.map((m: Member) => ({
           assignedTo: [m._id],
           desc: "",
           topic: "",
@@ -54,7 +71,7 @@ export default function CreateTaskPage() {
     fetchTeam();
   }, [teamId]);
 
-  function handleTaskChange(idx: number, field: string, value: string) {
+  function handleTaskChange(idx: number, field: keyof TaskForm, value: string) {
     setTasks((tasks) =>
       tasks.map((task, i) => (i === idx ? { ...task, [field]: value } : task))
     );
@@ -130,9 +147,8 @@ export default function CreateTaskPage() {
     }
   }
 
-  // Always compute nonAdminMembers from team (so we sync indexes)
   const nonAdminMembers = team
-    ? team.members.filter((m: any) => m._id !== team.admin._id)
+    ? team.members.filter((m: Member) => m._id !== team.admin._id)
     : [];
 
   const filledTasks = tasks.filter((t) => t.desc.trim()).length;
@@ -140,7 +156,6 @@ export default function CreateTaskPage() {
 
   return (
     <div className="animate-in fade-in duration-500">
-      {/* Header */}
       <div className="space-y-2">
         <div className="flex justify-between items-center">
           <h1 className="text-4xl font-bold text-black">Create Tasks</h1>
@@ -150,11 +165,8 @@ export default function CreateTaskPage() {
             </button>
           </Link>
         </div>
-
         <p className="text-gray-500">Assign tasks to your team members</p>
       </div>
-
-      {/* Progress Indicator */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">
@@ -178,8 +190,6 @@ export default function CreateTaskPage() {
           />
         </div>
       </div>
-
-      {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3 animate-in slide-in-from-top-2 duration-300">
           <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
@@ -189,15 +199,13 @@ export default function CreateTaskPage() {
           </div>
         </div>
       )}
-
-      {/* Tasks Form */}
       <form onSubmit={handleSubmit} className="space-y-3">
         {team &&
           tasks.map((task, idx) => {
             const member = nonAdminMembers[idx];
+            if (!member) return null;
             const isExpanded = expandedTasks.has(idx);
             const isFilled = task.desc.trim().length > 0;
-
             return (
               <div
                 key={member._id}
@@ -206,7 +214,6 @@ export default function CreateTaskPage() {
                   animation: `slideIn 0.3s ease-out ${idx * 0.05}s backwards`,
                 }}
               >
-                {/* Task Header - Collapsible */}
                 <button
                   type="button"
                   onClick={() => toggleExpanded(idx)}
@@ -255,8 +262,6 @@ export default function CreateTaskPage() {
                     />
                   </div>
                 </button>
-
-                {/* Task Details - Expandable */}
                 <div
                   className={`overflow-hidden transition-all duration-300 ${
                     isExpanded
@@ -265,7 +270,6 @@ export default function CreateTaskPage() {
                   }`}
                 >
                   <div className="px-4 pb-4 pt-2 space-y-3 border-t border-gray-100">
-                    {/* Description */}
                     <div className="space-y-1.5">
                       <label className="flex items-center gap-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
                         <FileText className="w-3.5 h-3.5" />
@@ -280,8 +284,6 @@ export default function CreateTaskPage() {
                         }
                       />
                     </div>
-
-                    {/* Topic & Subtopic */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="flex items-center gap-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
@@ -312,8 +314,6 @@ export default function CreateTaskPage() {
                         />
                       </div>
                     </div>
-
-                    {/* Dates */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="flex items-center gap-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
@@ -344,8 +344,6 @@ export default function CreateTaskPage() {
                         />
                       </div>
                     </div>
-
-                    {/* Priority */}
                     <div className="space-y-1.5">
                       <label className="flex items-center gap-2 text-xs font-medium text-gray-600 uppercase tracking-wide">
                         <Flag className="w-3.5 h-3.5" />
@@ -357,7 +355,11 @@ export default function CreateTaskPage() {
                             key={priority}
                             type="button"
                             onClick={() =>
-                              handleTaskChange(idx, "priority", priority)
+                              handleTaskChange(
+                                idx,
+                                "priority",
+                                priority as TaskForm["priority"]
+                              )
                             }
                             className={`px-3 py-2 rounded-lg border-2 transition-all font-medium text-sm capitalize flex items-center justify-center gap-2 ${
                               task.priority === priority
@@ -377,8 +379,6 @@ export default function CreateTaskPage() {
               </div>
             );
           })}
-
-        {/* Submit Button */}
         <div className="sticky bottom-0 pt-6 pb-4 bg-white border-t border-gray-200 -mx-6 px-6">
           <button
             type="submit"
@@ -390,7 +390,6 @@ export default function CreateTaskPage() {
           </button>
         </div>
       </form>
-
       <style jsx>{`
         @keyframes slideIn {
           from {

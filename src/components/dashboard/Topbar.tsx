@@ -182,7 +182,9 @@
 //   );
 // }
 
+"use client";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Search,
   Bell,
@@ -195,8 +197,7 @@ import {
 } from "lucide-react";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
-import { useRouter, usePathname } from "next/navigation";
-import { TabType } from "../../types/type";
+import { TabType } from "@/types/type";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -204,17 +205,19 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useEffect, useRef, useState } from "react";
 
+interface TopbarProps {
+  workspace?: string;
+  memberAvatars?: string[];
+  memberCount?: number;
+  showTabs?: boolean;
+}
+
 export default function Topbar({
   workspace = "ShelfSync",
   memberAvatars = [],
   memberCount = 0,
   showTabs = true,
-}: {
-  workspace?: string;
-  memberAvatars?: string[];
-  memberCount?: number;
-  showTabs?: boolean;
-}) {
+}: TopbarProps) {
   const { team, user } = useTeam() ?? {};
   const router = useRouter();
   const pathname = usePathname();
@@ -223,17 +226,19 @@ export default function Topbar({
   const { activeTab, setActiveTab } = useTab();
   const isAdmin = !!(team && user && team.admin && team.admin._id === user._id);
 
-  const getInitials = (index: number) => {
-    return `M${index + 1}`;
+  const getInitials = (name: string, index?: number) => {
+    if (index !== undefined) return `M${index + 1}`;
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (
-        avatarRef.current &&
-        !avatarRef.current.contains(e.target as Node)
-      ) {
+      if (avatarRef.current && !avatarRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     }
@@ -246,14 +251,13 @@ export default function Topbar({
   }, [dropdownOpen]);
 
   async function handleLogout() {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL}/logout`, {
+    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/logout`, {
       method: "POST",
       credentials: "include",
     });
-    router.push("/");
+    router.replace("/login");
   }
 
-  // Handles tab click: sets activeTab and routes to team page if not there
   function handleTabClick(tab: TabType) {
     setActiveTab(tab);
     if (team && pathname !== `/teams/${team._id}`) {
@@ -263,30 +267,24 @@ export default function Topbar({
 
   return (
     <div className="bg-white border-b border-gray-200 shadow-sm">
-      {/* Top Section */}
       <div className="h-16 flex items-center justify-between px-6">
-        {/* Left - Workspace & Search */}
         <div className="flex items-center gap-4 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 group cursor-pointer">
             <h1 className="text-lg font-bold text-gray-900">
               {team?.name || workspace}
             </h1>
-            <ChevronDown className="w-4 h-4 text-gray-400" />
+            <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-gray-900 transition" />
           </div>
-
           <div className="relative max-w-md flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
               type="text"
-              placeholder="Search..."
-              className="pl-10 bg-gray-50 border-gray-200 focus:bg-white h-9 text-sm"
+              placeholder="Search messages, tasks, and more..."
+              className="pl-10 bg-gray-50 border border-gray-200 focus:bg-white h-10 text-sm placeholder:text-gray-400 transition"
             />
           </div>
         </div>
-
-        {/* Right - Members & Actions */}
         <div className="flex items-center gap-3">
-          {/* Member Avatars */}
           {team && memberAvatars.length > 0 && (
             <div className="flex items-center gap-2">
               <div className="flex -space-x-2">
@@ -296,17 +294,14 @@ export default function Topbar({
                     className="w-8 h-8 border-2 border-white shadow-sm"
                   >
                     <AvatarImage src={url} />
-                    <AvatarFallback className="bg-gray-200 text-gray-600 text-xs">
-                      {getInitials(idx)}
+                    <AvatarFallback className="bg-gray-200 text-gray-600 text-xs font-medium">
+                      {getInitials("", idx)}
                     </AvatarFallback>
                   </Avatar>
                 ))}
               </div>
               {memberCount > 4 && (
-                <Badge
-                  variant="secondary"
-                  className="bg-gray-100 text-gray-600"
-                >
+                <Badge variant="secondary" className="text-xs font-medium px-2">
                   +{memberCount - 4}
                 </Badge>
               )}
@@ -315,48 +310,48 @@ export default function Topbar({
 
           <Separator orientation="vertical" className="h-6" />
 
-          {/* Action Buttons */}
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="h-9 w-9 text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition relative"
           >
             <Bell className="w-4 h-4" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></span>
           </Button>
 
           <Button
             variant="ghost"
             size="icon"
-            className="h-9 w-9 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="h-9 w-9 text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition"
           >
             <Settings className="w-4 h-4" />
           </Button>
 
-          {/* User Avatar + Dropdown */}
           <div className="relative" ref={avatarRef}>
-            <div
-              className="w-8 h-8 border border-gray-200 cursor-pointer hover:border-gray-300 rounded-full overflow-hidden"
+            <Avatar
+              className="w-9 h-9 border-2 border-gray-200 cursor-pointer hover:border-blue-500 transition"
               onClick={() => setDropdownOpen((v) => !v)}
             >
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 object-cover" />
-              ) : (
-                <div className="bg-gray-900 text-white flex items-center justify-center h-full">
-                  {user?.name ? user.name[0] : "U"}
-                </div>
-              )}
-            </div>
+              <AvatarImage src={user?.avatarUrl} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-800 text-white text-sm font-semibold">
+                {user?.name ? getInitials(user.name) : "U"}
+              </AvatarFallback>
+            </Avatar>
             {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-44 bg-white border rounded shadow-lg z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                <div className="p-3 border-b border-gray-100">
+                  <p className="font-semibold text-sm text-gray-900">{user?.name || "User"}</p>
+                  <p className="text-xs text-gray-400 truncate">{user?._id}</p>
+                </div>
                 <button
-                  className="block w-full text-left px-4 py-2 text-gray-700 cursor-not-allowed"
+                  className="block w-full text-left px-4 py-2.5 text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-900 transition"
                   disabled
                 >
-                  Profile
+                  Profile Settings
                 </button>
-                <hr className="my-1" />
+                <Separator />
                 <button
-                  className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
+                  className="block w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition"
                   onClick={handleLogout}
                 >
                   Logout
@@ -366,54 +361,45 @@ export default function Topbar({
           </div>
         </div>
       </div>
-
-      {/* Bottom Section - Tabs */}
       {showTabs && (
         <div className="h-12 flex items-center px-6 bg-gray-50 border-t border-gray-200">
           <nav className="flex items-center gap-1">
-            {/* Messages Tab */}
             <Button
               variant="ghost"
               onClick={() => handleTabClick("messages")}
-              className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
+              className={`flex items-center gap-2 px-4 h-9 rounded-lg transition ${
                 activeTab === "messages"
-                  ? "bg-white text-gray-900 shadow-sm font-medium"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                  ? "bg-white text-gray-900 shadow-sm font-semibold border border-gray-200"
+                  : "text-gray-400 hover:text-gray-900 hover:bg-white/60"
               }`}
             >
               <MessageCircle className="w-4 h-4" />
               <span className="text-sm">Messages</span>
             </Button>
-
-            {/* Tasks Tab */}
             <Button
               variant="ghost"
               onClick={() => handleTabClick("tasks")}
-              className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
+              className={`flex items-center gap-2 px-4 h-9 rounded-lg transition ${
                 activeTab === "tasks"
-                  ? "bg-white text-gray-900 shadow-sm font-medium"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                  ? "bg-white text-gray-900 shadow-sm font-semibold border border-gray-200"
+                  : "text-gray-400 hover:text-gray-900 hover:bg-white/60"
               }`}
             >
               <FileText className="w-4 h-4" />
               <span className="text-sm">Tasks</span>
             </Button>
-
-            {/* All Tasks Tab */}
             <Button
               variant="ghost"
               onClick={() => handleTabClick("all")}
-              className={`flex items-center gap-2 px-4 h-9 rounded-md transition-all ${
+              className={`flex items-center gap-2 px-4 h-9 rounded-lg transition ${
                 activeTab === "all"
-                  ? "bg-white text-gray-900 shadow-sm font-medium"
-                  : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
+                  ? "bg-white text-gray-900 shadow-sm font-semibold border border-gray-200"
+                  : "text-gray-400 hover:text-gray-900 hover:bg-white/60"
               }`}
             >
               <Pin className="w-4 h-4" />
               <span className="text-sm">All Tasks</span>
             </Button>
-
-            {/* Create Task Button */}
             {isAdmin && team && (
               <>
                 <Separator orientation="vertical" className="h-6 mx-2" />
@@ -421,9 +407,10 @@ export default function Topbar({
                   <Button
                     size="sm"
                     onClick={() => setActiveTab("create")}
-                    className="flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white h-9 px-4"
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 transition"
                   >
                     <Plus className="w-4 h-4" />
+                    <span className="text-sm font-medium">New Task</span>
                   </Button>
                 </Link>
               </>
