@@ -194,6 +194,7 @@ import {
   MessageCircle,
   FileText,
   Pin,
+  Ghost,
 } from "lucide-react";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
@@ -316,7 +317,7 @@ export default function Topbar({
             className="h-9 w-9 text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition relative"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></span>
+            <span className="absolute top-2 right-2 w-2 h-2 bg-violet-500 rounded-full"></span>
           </Button>
 
           <Button
@@ -329,11 +330,11 @@ export default function Topbar({
 
           <div className="relative" ref={avatarRef}>
             <Avatar
-              className="w-9 h-9 border-2 border-gray-200 cursor-pointer hover:border-blue-500 transition"
+              className="w-9 h-9 border-2 border-gray-200 cursor-pointer hover:border-violet-500 transition"
               onClick={() => setDropdownOpen((v) => !v)}
             >
               <AvatarImage src={user?.avatarUrl} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-800 text-white text-sm font-semibold">
+              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-violet-800 text-white text-sm font-semibold">
                 {user?.name ? getInitials(user.name) : "U"}
               </AvatarFallback>
             </Avatar>
@@ -405,9 +406,14 @@ export default function Topbar({
                 <Separator orientation="vertical" className="h-6 mx-2" />
                 <Link href={`/teams/${team._id}/task/create`}>
                   <Button
-                    size="sm"
+                  variant="ghost"
+                    
                     onClick={() => setActiveTab("create")}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white h-9 px-4 transition"
+                    className={`flex items-center gap-2 px-4 h-9 rounded-lg transition ${
+                activeTab === "create"
+                  ? "bg-white text-gray-900 shadow-sm font-semibold border border-gray-200"
+                  : "text-gray-400 hover:text-gray-900 hover:bg-white/60"
+              }`}
                   >
                     <Plus className="w-4 h-4" />
                     <span className="text-sm font-medium">New Task</span>

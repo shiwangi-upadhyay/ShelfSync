@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import PasswordInput from "../common/PasswordInput";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -38,7 +39,6 @@ export default function SignupPage() {
         setTimeout(() => {
           router.push("/"); // Redirect to dashboard
         }, 1200); // slight delay so user sees success message
-      
       }
     } catch (err) {
       console.log(err);
@@ -68,8 +68,7 @@ export default function SignupPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

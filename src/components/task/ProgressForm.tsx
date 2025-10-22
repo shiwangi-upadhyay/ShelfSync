@@ -2,7 +2,7 @@ import { useState } from "react";
 import { apiFetch } from "@/utils/api";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -35,15 +35,18 @@ const PROGRESS_OPTIONS = [
   { label: "100%", value: "100%" },
 ];
 
-export default function ProgressForm({ 
-  taskId, 
-  progressValue, 
-  onProgressUpdated 
+export default function ProgressForm({
+  taskId,
+  progressValue,
+  onProgressUpdated,
 }: ProgressFormProps) {
   const [value, setValue] = useState(progressValue || "0%");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  // Determine if the button should be disabled
+  const isSubmitDisabled = loading || value === (progressValue || "0%");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -75,10 +78,12 @@ export default function ProgressForm({
 
         // Fetch updated task (type as MinimalTask)
         const updatedTaskRes = await apiFetch(`/tasks/${taskId}`);
-        const updatedTask: MinimalTask | undefined = updatedTaskRes.ok ? await updatedTaskRes.json() : undefined;
-        
+        const updatedTask: MinimalTask | undefined = updatedTaskRes.ok
+          ? await updatedTaskRes.json()
+          : undefined;
+
         setSuccess(true);
-        
+
         // Call callback
         onProgressUpdated?.(updatedTask);
 
@@ -102,44 +107,49 @@ export default function ProgressForm({
         Update Progress
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 ">
         {/* Progress Percentage Select */}
         <div className="space-y-2">
-          <Label htmlFor="progress-value" className="text-sm font-medium text-gray-700">
+          <Label
+            htmlFor="progress-value"
+            className="text-sm font-medium text-gray-700"
+          >
             Completion Percentage
           </Label>
-          <Select value={value} onValueChange={setValue} disabled={loading}>
-            <SelectTrigger id="progress-value" className="w-full">
-              <SelectValue placeholder="Select progress" />
-            </SelectTrigger>
-            <SelectContent>
-              {PROGRESS_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="flex gap-3">
+            <Select value={value} onValueChange={setValue} disabled={loading}>
+              <SelectTrigger id="progress-value" className="w-full">
+                <SelectValue placeholder="Select progress" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROGRESS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-        {/* Submit Button */}
-        <Button 
-          type="submit" 
-          disabled={loading}
-          className="w-full bg-gray-900 hover:bg-gray-800 text-white"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Updating...
-            </>
-          ) : (
-            <>
-              <TrendingUp className="w-4 h-4 mr-2" />
-              Update Progress
-            </>
-          )}
-        </Button>
+            {/* Submit Button */}
+            <Button
+              type="submit"
+              disabled={isSubmitDisabled}
+              className="w-48 bg-violet-600 hover:bg-violet-500 text-white"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Update Progress
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </form>
 
       {/* Error Message */}
