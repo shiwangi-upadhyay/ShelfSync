@@ -181,7 +181,6 @@
 //     </div>
 //   );
 // }
-
 "use client";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -224,7 +223,18 @@ export default function Topbar({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const avatarRef = useRef<HTMLDivElement>(null);
   const { activeTab, setActiveTab } = useTab();
+
+  // Permission for create task: admin or canCreateTask member
   const isAdmin = !!(team && user && team.admin && team.admin._id === user._id);
+  const canCreateTask =
+    !!team &&
+    !!user &&
+    (isAdmin ||
+      team.members?.some(
+        (m: any) =>
+          (m.user?._id === user._id || m.user === user._id) &&
+          m.canCreateTask
+      ));
 
   const getInitials = (name: string, index?: number) => {
     if (index !== undefined) return `M${index + 1}`;
@@ -400,19 +410,18 @@ export default function Topbar({
               <Pin className="w-4 h-4" />
               <span className="text-sm">All Tasks</span>
             </Button>
-            {isAdmin && team && (
+            {canCreateTask && team && (
               <>
                 <Separator orientation="vertical" className="h-6 mx-2" />
                 <Link href={`/teams/${team._id}/task/create`}>
                   <Button
-                  variant="ghost"
-                    
+                    variant="ghost"
                     onClick={() => setActiveTab("create")}
-                    className={`flex items-center gap-2 px-4 h-9 rounded-lg transition ${
-                activeTab === "create"
-                  ? "bg-white text-gray-900 shadow-sm font-semibold border border-gray-200"
-                  : "text-gray-400 hover:text-gray-900 hover:bg-white/60"
-              }`}
+                    className={`flex items-center gap-2 px-4 h-9 transition ${
+                      activeTab === "create"
+                        ? " text-gray-900  font-semibold "
+                        : "text-gray-400 hover:text-gray-900 "
+                    }`}
                   >
                     <Plus className="w-4 h-4" />
                     <span className="text-sm font-medium">New Task</span>

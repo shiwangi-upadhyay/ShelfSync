@@ -1,3 +1,4 @@
+"use client"
 import ProtectedRoute from "@/components/ProtectedRoute";
 import CreateTeamPage from "@/components/team/Create";
 

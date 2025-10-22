@@ -24,6 +24,7 @@ type Task = {
   status: string;
   priority: string;
   assignedTo: User[];
+  assignedBy?: User; // <-- Add this line!
   startDate?: string;
   endDate?: string;
   progressFields: { title: string; value: string }[];
@@ -41,7 +42,6 @@ export default function TaskDetailCard({
   editable,
   onTaskUpdated,
 }: TaskDetailCardProps) {
-
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "completed":
@@ -137,6 +137,7 @@ export default function TaskDetailCard({
 
         <CardContent className="space-y-6">
           {/* Assigned Users */}
+          {/* Assigned Users */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
               <Users className="w-4 h-4" />
@@ -158,6 +159,21 @@ export default function TaskDetailCard({
                 </div>
               ))}
             </div>
+            {/* Assigned By */}
+            {task.assignedBy && (
+              <div className="flex items-center gap-2 mt-1 pl-1">
+                <span className="text-xs text-gray-500">Assigned by</span>
+                <Avatar className="w-6 h-6">
+                  <AvatarImage src={task.assignedBy.avatarUrl} />
+                  <AvatarFallback className="text-xs">
+                    {getInitials(task.assignedBy.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-xs text-gray-600">
+                  {task.assignedBy.name}
+                </span>
+              </div>
+            )}
           </div>
 
           <Separator />

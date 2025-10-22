@@ -23,12 +23,14 @@ export default function CreateTeamPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [name, setName] = useState("");
-  const [members, setMembers] = useState<{ _id: string; name: string }[]>([]);
+  const [members, setMembers] = useState<
+    { _id: string; name: string; canCreateTask: boolean }[]
+  >([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   function handleAddMember(user: { _id: string; name: string }) {
     if (!members.some((m) => m._id === user._id)) {
-      setMembers([...members, user]);
+      setMembers([...members, { ...user, canCreateTask: false }]);
     }
   }
 
@@ -42,8 +44,11 @@ export default function CreateTeamPage() {
     setIsSubmitting(true);
 
     const payload = {
-      name,
-      memberIds: members.map((m) => m._id),
+      name, // <--- this must be a non-empty string!
+      members: members.map((m) => ({
+        user: m._id,
+        canCreateTask: m.canCreateTask,
+      })),
     };
 
     try {
@@ -97,7 +102,8 @@ export default function CreateTeamPage() {
                 Create a New Team
               </h1>
               <p className="text-lg text-gray-500 max-w-2xl mx-auto">
-                Build your dream team and start collaborating on projects together
+                Build your dream team and start collaborating on projects
+                together
               </p>
             </div>
           </div>
@@ -109,7 +115,9 @@ export default function CreateTeamPage() {
             variant="destructive"
             className="animate-fade-in border-red-400 bg-red-100"
           >
-            <AlertDescription className="text-red-600">{error}</AlertDescription>
+            <AlertDescription className="text-red-600">
+              {error}
+            </AlertDescription>
           </Alert>
         )}
 
@@ -133,9 +141,14 @@ export default function CreateTeamPage() {
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* Team Name */}
               <div className="space-y-3">
-                <Label htmlFor="team-name" className="text-base font-semibold flex items-center gap-2">
+                <Label
+                  htmlFor="team-name"
+                  className="text-base font-semibold flex items-center gap-2"
+                >
                   Team Name
-                  <Badge variant="secondary" className="text-xs">Required</Badge>
+                  <Badge variant="secondary" className="text-xs">
+                    Required
+                  </Badge>
                 </Label>
                 <Input
                   id="team-name"
@@ -155,7 +168,8 @@ export default function CreateTeamPage() {
                     Team Members
                     {members.length > 0 && (
                       <Badge variant="outline" className="ml-2">
-                        {members.length} {members.length === 1 ? "member" : "members"}
+                        {members.length}{" "}
+                        {members.length === 1 ? "member" : "members"}
                       </Badge>
                     )}
                   </Label>
@@ -171,7 +185,7 @@ export default function CreateTeamPage() {
                       Added Members
                     </div>
                     <div className="grid gap-3">
-                      {members.map((member) => (
+                      {members.map((member, idx) => (
                         <div
                           key={member._id}
                           className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-100 hover:bg-gray-200 transition group"
@@ -181,7 +195,28 @@ export default function CreateTeamPage() {
                               {getInitials(member.name)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="flex-1 font-medium">{member.name}</span>
+                          <span className="flex-1 font-medium">
+                            {member.name}
+                          </span>
+                          <label className="flex items-center gap-1 text-xs text-gray-600">
+                            <input
+                              type="checkbox"
+                              checked={member.canCreateTask}
+                              onChange={() => {
+                                setMembers((members) =>
+                                  members.map((m, i) =>
+                                    i === idx
+                                      ? {
+                                          ...m,
+                                          canCreateTask: !m.canCreateTask,
+                                        }
+                                      : m
+                                  )
+                                );
+                              }}
+                            />
+                            Can create tasks
+                          </label>
                           <Button
                             type="button"
                             variant="ghost"

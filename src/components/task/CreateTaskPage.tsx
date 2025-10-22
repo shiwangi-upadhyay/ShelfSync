@@ -8,14 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge"; // <-- Add Badge import
 
 interface Member {
-  _id: string;
-  name: string;
+  user: { _id: string; name: string };
+  canCreateTask: boolean;
 }
 
 interface TeamType {
-  admin: Member;
+  admin: { _id: string; name: string };
   members: Member[];
   name: string;
 }
@@ -38,6 +39,18 @@ export default function CreateTaskPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+  const [me, setMe] = useState<{ _id: string; name: string } | null>(null);
+
+  // fetch /me on mount
+  useEffect(() => {
+    async function fetchMe() {
+      try {
+        const res = await apiFetch("/me");
+        if (res.ok) setMe(await res.json());
+      } catch {}
+    }
+    fetchMe();
+  }, []);
 
   useEffect(() => {
     async function fetchTeam() {
@@ -48,11 +61,11 @@ export default function CreateTaskPage() {
           setTeam(teamData);
 
           const nonAdminMembers = teamData.members.filter(
-            (m: Member) => m._id !== teamData.admin._id
+            (m: Member) => m.user._id !== teamData.admin._id
           );
 
           const initialTasks = nonAdminMembers.map((m: Member) => ({
-            assignedTo: [m._id],
+            assignedTo: [m.user._id],
             desc: "",
             topic: "",
             subTopic: "",
@@ -63,7 +76,7 @@ export default function CreateTaskPage() {
           setTasks(initialTasks);
         }
       } catch (err) {
-        console.log('err', err);
+        console.log("err", err);
         setError("Failed to load team data");
       } finally {
         setLoading(false);
@@ -82,15 +95,17 @@ export default function CreateTaskPage() {
     e.preventDefault();
     setError("");
 
-    if (!team) return;
+    if (!team || !me) return;
     setSubmitting(true);
 
     try {
-      const userRes = await apiFetch("/me");
-      const me = userRes.ok ? await userRes.json() : null;
+      // Use me from state (do not fetch /me again)
+      const isAllowed =
+        team.admin._id === me._id ||
+        team.members.some((m) => m.user._id === me._id && m.canCreateTask);
 
-      if (!me || team.admin._id !== me._id) {
-        setError("Only the team admin can create tasks");
+      if (!isAllowed) {
+        setError("You do not have permission to create tasks");
         setSubmitting(false);
         return;
       }
@@ -129,7 +144,7 @@ export default function CreateTaskPage() {
         setError(data.error || "Failed to create tasks");
       }
     } catch (err) {
-      console.log('err', err);
+      console.log("err", err);
       setError("Something went wrong");
     } finally {
       setSubmitting(false);
@@ -144,8 +159,26 @@ export default function CreateTaskPage() {
     );
   }
 
+  const canCreateTask =
+    me &&
+    team &&
+    (team.admin._id === me._id ||
+      team.members.some((m) => m.user._id === me._id && m.canCreateTask));
+
+  if (!loading && !canCreateTask) {
+    return (
+      <div className="flex flex-col items-center py-20 text-gray-500">
+        <AlertCircle className="w-8 h-8 mb-4" />
+        <div>You do not have permission to create tasks for this team.</div>
+        <Link href={`/teams/${teamId}`} className="mt-4">
+          <Button>Back to Team</Button>
+        </Link>
+      </div>
+    );
+  }
+
   const nonAdminMembers =
-    team?.members.filter((m: Member) => m._id !== team.admin._id) || [];
+    team?.members.filter((m: Member) => m.user._id !== team.admin._id) || [];
 
   const filledCount = tasks.filter((t) => t.desc.trim()).length;
 
@@ -194,13 +227,25 @@ export default function CreateTaskPage() {
 
             return (
               <div
-                key={member._id}
+                key={member.user._id}
                 className={`border rounded-lg p-6 transition ${
                   isFilled ? "border-gray-900 bg-gray-50" : "border-gray-200"
                 }`}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-medium text-gray-900">{member.name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-medium text-gray-900">
+                      {member.user.name}
+                    </h3>
+                    {member.canCreateTask && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs text-violet-700 border-violet-300 bg-violet-50"
+                      >
+                        Can create task
+                      </Badge>
+                    )}
+                  </div>
                   {isFilled && (
                     <span className="text-xs text-gray-500">✓ Assigned</span>
                   )}

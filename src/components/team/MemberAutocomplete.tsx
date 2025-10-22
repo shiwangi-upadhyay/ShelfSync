@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+"use client";
+import { useState, useEffect, useRef, UIEvent } from "react";
 import {
   Popover,
   PopoverTrigger,
@@ -6,14 +7,14 @@ import {
 } from "@/components/ui/popover";
 import {
   Command,
-  CommandInput,
   CommandItem,
-  CommandList,
   CommandEmpty,
 } from "@/components/ui/command";
+import { CommandList as CmdkCommandList } from "cmdk";
 import { Avatar } from "@/components/ui/avatar";
 import { apiFetch } from "@/utils/api";
 import { AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
+import { SearchIcon } from "lucide-react";
 
 interface User {
   _id: string;
@@ -31,43 +32,77 @@ export default function MemberAutocomplete({ onAdd }: MemberAutocompleteProps) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const LIMIT = 10;
+
+  function fetchUsers(pageNum: number, q: string, replace: boolean = false) {
+    console.log("Calling fetchUsers →", { pageNum, q, replace });
+    setLoading(true);
+
+    apiFetch(
+      `/search?q=${encodeURIComponent(q || "")}&page=${pageNum}&limit=${LIMIT}`
+    )
+      .then((res: Response) => (res.ok ? res.json() : []))
+      .then((data: User[]) => {
+        if (replace) setSuggestions(data);
+        else setSuggestions((prev: User[]) => [...prev, ...data]);
+        setHasMore(data.length === LIMIT);
+      })
+      .finally(() => setLoading(false));
+  }
 
   useEffect(() => {
-    if (!query) {
-      setSuggestions([]);
-      return;
+    if (!open) return;
+    const delay = setTimeout(() => {
+      console.log("Fetching users for:", query);
+      fetchUsers(1, query, true);
+    }, 300); // debounce typing
+
+    return () => clearTimeout(delay);
+  }, [query, open]);
+
+  function handleScroll(e: UIEvent<HTMLDivElement>) {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 10 && hasMore && !loading) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      fetchUsers(nextPage, query);
     }
-    setLoading(true);
-    apiFetch(`/search?q=${encodeURIComponent(query)}`)
-      .then((res) => (res.ok ? res.json() : []))
-      .then((data) => setSuggestions(data))
-      .finally(() => setLoading(false));
-  }, [query]);
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(v) => setOpen(true)}>
       <PopoverTrigger asChild>
-        {/* Use a regular input to trigger popover */}
-        <input
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
+        <button
+          type="button"
+          className="border px-3 py-2 rounded w-full flex items-center gap-2"
+          onClick={(e) => {
+            e.preventDefault();
             setOpen(true);
           }}
-          placeholder="Type to search users"
-          className="border px-3 py-2 rounded w-full"
-          onFocus={() => setOpen(true)}
-        />
+        >
+          <SearchIcon className="w-4 h-4 text-gray-400" />
+          <span className="text-gray-500">Add member...</span>
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command>
-          <CommandInput
+          <input
+            className="w-full border-none outline-none px-3 py-2"
             value={query}
-            onValueChange={setQuery}
-            placeholder="Search users…"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search members..."
           />
-          <CommandList>
-            {loading && (
+          <CmdkCommandList
+            style={{ maxHeight: 300, overflowY: "auto" }}
+            onScroll={handleScroll}
+            ref={listRef}
+          >
+            {loading && suggestions.length === 0 && (
               <div className="px-3 py-2 text-muted-foreground text-sm">
                 Loading…
               </div>
@@ -82,7 +117,6 @@ export default function MemberAutocomplete({ onAdd }: MemberAutocompleteProps) {
                 onSelect={() => {
                   onAdd(user);
                   setOpen(false);
-                  setQuery("");
                 }}
               >
                 <div className="flex items-center gap-2">
@@ -100,7 +134,12 @@ export default function MemberAutocomplete({ onAdd }: MemberAutocompleteProps) {
                 </div>
               </CommandItem>
             ))}
-          </CommandList>
+            {loading && suggestions.length > 0 && (
+              <div className="px-3 py-2 text-muted-foreground text-sm">
+                Loading…
+              </div>
+            )}
+          </CmdkCommandList>
         </Command>
       </PopoverContent>
     </Popover>
