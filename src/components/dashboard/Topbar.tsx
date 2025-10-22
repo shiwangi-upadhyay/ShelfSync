@@ -194,7 +194,6 @@ import {
   MessageCircle,
   FileText,
   Pin,
-  Ghost,
 } from "lucide-react";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";

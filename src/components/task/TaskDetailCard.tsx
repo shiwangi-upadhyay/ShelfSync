@@ -41,18 +41,6 @@ export default function TaskDetailCard({
   editable,
   onTaskUpdated,
 }: TaskDetailCardProps) {
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toLowerCase()) {
-      case "high":
-        return "destructive";
-      case "medium":
-        return "default";
-      case "low":
-        return "secondary";
-      default:
-        return "outline";
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

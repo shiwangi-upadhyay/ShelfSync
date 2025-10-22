@@ -63,6 +63,7 @@ export default function CreateTaskPage() {
           setTasks(initialTasks);
         }
       } catch (err) {
+        console.log('err', err);
         setError("Failed to load team data");
       } finally {
         setLoading(false);
@@ -128,6 +129,7 @@ export default function CreateTaskPage() {
         setError(data.error || "Failed to create tasks");
       }
     } catch (err) {
+      console.log('err', err);
       setError("Something went wrong");
     } finally {
       setSubmitting(false);
