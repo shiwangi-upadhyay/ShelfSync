@@ -19,19 +19,25 @@ export default function MainLayout({
   team,
 }: MainLayoutProps) {
   const pathname = usePathname();
-  // Consider dashboard as root or create team page
   const isDashboard = pathname === "/" || pathname === "/teams/create";
 
   return (
-    <div className="flex min-h-screen bg-gray-50"> {/* bg-background -> bg-gray-50 */}
-      <Sidebar />
-      <div className="flex flex-1 flex-col">
-        <Topbar
-          memberAvatars={team ? team.members.map((m: User) => m.avatarUrl || "") : []}
-          memberCount={team ? team.members.length : 0}
-          showTabs={!isDashboard}
-        />
-        <main className="flex-1 overflow-y-auto bg-white"> {/* bg-background -> bg-white */}
+    <div className="flex h-screen w-screen overflow-hidden">
+      {/* Sidebar: fixed left, full height */}
+      <div className="fixed left-0 top-0 h-screen w-72 z-30 bg-gray-50 border-r border-gray-200">
+        <Sidebar />
+      </div>
+      <div className="flex flex-1 flex-col ml-72 h-screen">
+        {/* Topbar: sticky/fixed at top */}
+        <div className="fixed top-0 left-72 right-0 z-20">
+          <Topbar
+            memberAvatars={team ? team.members.map((m: User) => m.avatarUrl || "") : []}
+            memberCount={team ? team.members.length : 0}
+            showTabs={!isDashboard}
+          />
+        </div>
+        {/* Main Content: scrollable */}
+        <main className="flex-1 overflow-y-auto bg-white pt-[112px]"> {/* pt-[64px] = Topbar height */}
           <div className="max-w-7xl mx-auto py-8 px-6">
             {children}
           </div>

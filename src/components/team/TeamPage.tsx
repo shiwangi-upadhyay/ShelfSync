@@ -252,7 +252,7 @@ export default function TeamDetailPage() {
 
   // Tab content rendering
   return (
-    <div className="max-w-5xl mx-auto py-8">
+    <div className="max-w-5xl mx-auto">
       {activeTab === "messages" && (
         <div className="text-center text-lg text-gray-400 py-20">
           Coming soon

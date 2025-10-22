@@ -68,7 +68,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/utils/api";
-import { Users, Plus, Settings, Hash, MessageCircle, ChevronRight } from "lucide-react";
+import { Users, Plus, Settings, UsersRound, MessageCircle, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -165,7 +165,7 @@ export default function Sidebar() {
                       : "bg-gray-800 text-gray-400 group-hover:bg-purple-900/10 group-hover:text-purple-400"
                   }`}
                 >
-                  <Hash className="w-4 h-4" />
+                  <UsersRound className="w-4 h-4" />
                 </div>
                 <span className="flex-1 font-medium text-sm truncate">
                   {team.name}

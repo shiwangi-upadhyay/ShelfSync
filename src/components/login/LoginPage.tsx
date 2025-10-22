@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import PasswordInput from "../common/PasswordInput";
 
 export default function LoginPage() {
   const [showForgot, setShowForgot] = useState(false);
@@ -54,14 +55,13 @@ export default function LoginPage() {
               type="email"
               placeholder="Email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
-            <Input
-              type="password"
+            <PasswordInput
               placeholder="Password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
               required
             />
             {error && <div className="text-red-500 text-sm">{error}</div>}

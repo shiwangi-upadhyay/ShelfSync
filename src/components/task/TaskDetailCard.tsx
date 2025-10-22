@@ -89,6 +89,19 @@ export default function TaskDetailCard({
       .toUpperCase()
       .slice(0, 2);
   };
+  // Priority badge styles
+  const getPriorityBadgeClass = (priority: string) => {
+    switch (priority.toLowerCase()) {
+      case "high":
+        return "bg-red-100 text-red-700 border border-red-400";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border border-yellow-400";
+      case "low":
+        return "bg-green-100 text-green-700 border border-green-400";
+      default:
+        return "bg-gray-100 text-gray-800 border border-gray-300";
+    }
+  };
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return "—";
@@ -111,13 +124,15 @@ export default function TaskDetailCard({
             <CardTitle className="text-2xl font-bold leading-tight flex-1">
               {task.desc}
             </CardTitle>
-            <Badge
-              variant={getPriorityColor(task.priority)}
-              className="flex items-center gap-1 px-3 py-1"
+            <span
+              className={
+                "flex items-center gap-1 px-3 py-1 rounded-md text-sm font-semibold " +
+                getPriorityBadgeClass(task.priority)
+              }
             >
               <Flag className="w-3 h-3" />
               {task.priority}
-            </Badge>
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
@@ -214,12 +229,16 @@ export default function TaskDetailCard({
                   <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-700">Current Progress</h3>
+                        <h3 className="text-sm font-medium text-gray-700">
+                          Current Progress
+                        </h3>
                         <p className="text-2xl font-bold text-gray-900 mt-1">
-                          {task.progressFields[task.progressFields.length - 1].value}
+                          {
+                            task.progressFields[task.progressFields.length - 1]
+                              .value
+                          }
                         </p>
                       </div>
-                      
                     </div>
                   </div>
                 </div>
@@ -227,10 +246,13 @@ export default function TaskDetailCard({
                 <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-700">Current Progress</h3>
-                      <p className="text-2xl font-bold text-gray-900 mt-1">Not Started</p>
+                      <h3 className="text-sm font-medium text-gray-700">
+                        Current Progress
+                      </h3>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
+                        Not Started
+                      </p>
                     </div>
-                    
                   </div>
                 </div>
               )}
@@ -243,7 +265,8 @@ export default function TaskDetailCard({
                     taskId={task._id}
                     progressValue={
                       task.progressFields?.length
-                        ? task.progressFields[task.progressFields.length - 1].value
+                        ? task.progressFields[task.progressFields.length - 1]
+                            .value
                         : "0%"
                     }
                     onProgressUpdated={(updatedTask) => {
@@ -275,7 +298,9 @@ export default function TaskDetailCard({
                           {comment.by?.name || "Unknown"}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 pl-8">{comment.text}</p>
+                      <p className="text-sm text-gray-700 pl-8">
+                        {comment.text}
+                      </p>
                     </div>
                   ))}
                 </div>
