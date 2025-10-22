@@ -211,6 +211,16 @@ interface TopbarProps {
   showTabs?: boolean;
 }
 
+interface TeamMember {
+  user:
+    | {
+        _id: string;
+        name: string;
+      }
+    | string;
+  canCreateTask: boolean;
+}
+
 export default function Topbar({
   workspace = "ShelfSync",
   memberAvatars = [],
@@ -230,11 +240,13 @@ export default function Topbar({
     !!team &&
     !!user &&
     (isAdmin ||
-      team.members?.some(
-        (m: any) =>
-          (m.user?._id === user._id || m.user === user._id) &&
-          m.canCreateTask
-      ));
+      (Array.isArray(team.members) &&
+        (team.members as unknown as TeamMember[]).some(
+          (m) =>
+            (typeof m.user === "string"
+              ? m.user === user._id
+              : m.user._id === user._id) && m.canCreateTask
+        )));
 
   const getInitials = (name: string, index?: number) => {
     if (index !== undefined) return `M${index + 1}`;
@@ -261,10 +273,13 @@ export default function Topbar({
   }, [dropdownOpen]);
 
   async function handleLogout() {
-    await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/logout`, {
-      method: "POST",
-      credentials: "include",
-    });
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}/logout`,
+      {
+        method: "POST",
+        credentials: "include",
+      }
+    );
     router.replace("/login");
   }
 
@@ -350,7 +365,9 @@ export default function Topbar({
             {dropdownOpen && (
               <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
                 <div className="p-3 border-b border-gray-100">
-                  <p className="font-semibold text-sm text-gray-900">{user?.name || "User"}</p>
+                  <p className="font-semibold text-sm text-gray-900">
+                    {user?.name || "User"}
+                  </p>
                   <p className="text-xs text-gray-400 truncate">{user?._id}</p>
                 </div>
                 <button

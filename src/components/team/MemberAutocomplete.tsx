@@ -75,7 +75,7 @@ export default function MemberAutocomplete({ onAdd }: MemberAutocompleteProps) {
   }
 
   return (
-    <Popover open={open} onOpenChange={(v) => setOpen(true)}>
+    <Popover open={open} onOpenChange={() => setOpen(true)}>
       <PopoverTrigger asChild>
         <button
           type="button"
