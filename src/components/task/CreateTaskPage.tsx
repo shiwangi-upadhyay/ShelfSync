@@ -6,9 +6,17 @@ import { Loader2, AlertCircle, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+// import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge"; // <-- Add Badge import
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Member {
   user: { _id: string; name: string };
@@ -76,7 +84,7 @@ export default function CreateTaskPage() {
           setTasks(initialTasks);
         }
       } catch (err) {
-        console.log("err", err);
+        console.log(err);
         setError("Failed to load team data");
       } finally {
         setLoading(false);
@@ -99,7 +107,6 @@ export default function CreateTaskPage() {
     setSubmitting(true);
 
     try {
-      // Use me from state (do not fetch /me again)
       const isAllowed =
         team.admin._id === me._id ||
         team.members.some((m) => m.user._id === me._id && m.canCreateTask);
@@ -110,7 +117,6 @@ export default function CreateTaskPage() {
         return;
       }
 
-      // Only tasks with both desc and startDate
       const validTasks = tasks.filter(
         (t) => t.desc.trim() && t.startDate.trim()
       );
@@ -121,7 +127,6 @@ export default function CreateTaskPage() {
         return;
       }
 
-      // If any filled desc is missing startDate, show error
       const missingStartDate = tasks.some(
         (t) => t.desc.trim() && !t.startDate.trim()
       );
@@ -144,7 +149,7 @@ export default function CreateTaskPage() {
         setError(data.error || "Failed to create tasks");
       }
     } catch (err) {
-      console.log("err", err);
+      console.log(err);
       setError("Something went wrong");
     } finally {
       setSubmitting(false);
@@ -183,7 +188,7 @@ export default function CreateTaskPage() {
   const filledCount = tasks.filter((t) => t.desc.trim()).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4">
+    <div className="max-w-6xl mx-auto px-4">
       {/* Header */}
       <div className="mb-8 flex items-center justify-between">
         <div>
@@ -193,6 +198,9 @@ export default function CreateTaskPage() {
           <p className="text-sm text-gray-500">
             {team?.name} • {filledCount} of {nonAdminMembers.length} assigned
           </p>
+          {team?.admin && (
+            <p className="text-xs text-gray-400">Admin: {team.admin.name}</p>
+          )}
         </div>
         <Link href={`/teams/${teamId}`}>
           <Button
@@ -214,167 +222,129 @@ export default function CreateTaskPage() {
         </Alert>
       )}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {nonAdminMembers.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No team members to assign tasks to
-          </div>
-        ) : (
-          nonAdminMembers.map((member, idx) => {
-            const task = tasks[idx];
-            const isFilled = task?.desc.trim();
-
-            return (
-              <div
-                key={member.user._id}
-                className={`border rounded-lg p-6 transition ${
-                  isFilled ? "border-gray-900 bg-gray-50" : "border-gray-200"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-gray-900">
-                      {member.user.name}
-                    </h3>
-                    {member.canCreateTask && (
-                      <Badge
-                        variant="outline"
-                        className="text-xs text-violet-700 border-violet-300 bg-violet-50"
-                      >
-                        Can create task
-                      </Badge>
-                    )}
-                  </div>
-                  {isFilled && (
-                    <span className="text-xs text-gray-500">✓ Assigned</span>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor={`desc-${idx}`} className="text-sm">
-                      Description
-                    </Label>
-                    <Input
-                      id={`desc-${idx}`}
-                      placeholder="Task description"
-                      value={task?.desc || ""}
-                      onChange={(e) =>
-                        handleTaskChange(idx, "desc", e.target.value)
-                      }
-                      className="mt-1.5"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label
-                        htmlFor={`topic-${idx}`}
-                        className="text-sm text-gray-600"
-                      >
-                        Topic
-                      </Label>
-                      <Input
-                        id={`topic-${idx}`}
-                        placeholder="Optional"
-                        value={task?.topic || ""}
-                        onChange={(e) =>
-                          handleTaskChange(idx, "topic", e.target.value)
-                        }
-                        className="mt-1.5"
-                      />
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor={`subtopic-${idx}`}
-                        className="text-sm text-gray-600"
-                      >
-                        Subtopic
-                      </Label>
-                      <Input
-                        id={`subtopic-${idx}`}
-                        placeholder="Optional"
-                        value={task?.subTopic || ""}
-                        onChange={(e) =>
-                          handleTaskChange(idx, "subTopic", e.target.value)
-                        }
-                        className="mt-1.5"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label
-                        htmlFor={`start-${idx}`}
-                        className="text-sm text-gray-600"
-                      >
-                        Start
-                      </Label>
-                      <Input
-                        id={`start-${idx}`}
-                        type="date"
-                        value={task?.startDate || ""}
-                        onChange={(e) =>
-                          handleTaskChange(idx, "startDate", e.target.value)
-                        }
-                        className="mt-1.5"
-                      />
-                    </div>
-                    <div>
-                      <Label
-                        htmlFor={`end-${idx}`}
-                        className="text-sm text-gray-600"
-                      >
-                        Due
-                      </Label>
-                      <Input
-                        id={`end-${idx}`}
-                        type="date"
-                        value={task?.endDate || ""}
-                        onChange={(e) =>
-                          handleTaskChange(idx, "endDate", e.target.value)
-                        }
-                        className="mt-1.5"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-sm text-gray-600 mb-2 block">
-                      Priority
-                    </Label>
-                    <div className="flex gap-2">
-                      {(["low", "medium", "high"] as const).map((priority) => (
-                        <button
-                          key={priority}
-                          type="button"
-                          onClick={() =>
-                            handleTaskChange(idx, "priority", priority)
+      {/* Table Form */}
+      <form onSubmit={handleSubmit}>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Topic</TableHead>
+                <TableHead>Subtopic</TableHead>
+                <TableHead>Start Date</TableHead>
+                <TableHead>Due Date</TableHead>
+                <TableHead>Priority</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {nonAdminMembers.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-12 text-gray-500"
+                  >
+                    No team members to assign tasks to
+                  </TableCell>
+                </TableRow>
+              ) : (
+                nonAdminMembers.map((member, idx) => {
+                  const task = tasks[idx];
+                  return (
+                    <TableRow key={member.user._id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span>{member.user.name}</span>
+                          {member.canCreateTask && (
+                            <Badge
+                              variant="outline"
+                              className="text-xs text-violet-700 border-violet-300 bg-violet-50"
+                            >
+                              Can create task
+                            </Badge>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          placeholder="Task description"
+                          value={task?.desc || ""}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "desc", e.target.value)
                           }
-                          className={`flex-1 py-2 text-sm rounded-md capitalize transition ${
-                            task?.priority === priority
-                              ? "bg-violet-600 text-white"
-                              : "bg-violet-100 text-black-600 hover:bg-violet-200 border border-transparent hover:border-violet-300"
-                          }`}
-                        >
-                          {priority}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          placeholder="Topic"
+                          value={task?.topic || ""}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "topic", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          placeholder="Subtopic"
+                          value={task?.subTopic || ""}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "subTopic", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="date"
+                          value={task?.startDate || ""}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "startDate", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="date"
+                          value={task?.endDate || ""}
+                          onChange={(e) =>
+                            handleTaskChange(idx, "endDate", e.target.value)
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          {(["low", "medium", "high"] as const).map(
+                            (priority) => (
+                              <button
+                                key={priority}
+                                type="button"
+                                onClick={() =>
+                                  handleTaskChange(idx, "priority", priority)
+                                }
+                                className={`py-1 px-3 rounded-md capitalize transition ${
+                                  task?.priority === priority
+                                    ? "bg-violet-600 text-white"
+                                    : "bg-violet-100 text-black-600 hover:bg-violet-200 border border-transparent hover:border-violet-300"
+                                }`}
+                              >
+                                {priority}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
 
         {nonAdminMembers.length > 0 && (
           <Button
             type="submit"
             disabled={filledCount === 0 || submitting}
-            className="w-[200px] h-11 bg-violet-600 hover:bg-violet-500 border border-transparent hover:border-violet-600 items-center cursor-pointer justify-center flex mx-auto mt-4"
+            className="w-[200px] h-11 bg-violet-600 hover:bg-violet-500 border border-transparent hover:border-violet-600 items-center cursor-pointer justify-center flex mx-auto mt-8"
           >
             {submitting ? (
               <>

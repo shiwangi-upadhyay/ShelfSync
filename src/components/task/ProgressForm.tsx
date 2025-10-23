@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { apiFetch } from "@/utils/api";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -10,9 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { TrendingUp, Loader2, AlertCircle } from "lucide-react";
+import {  AlertCircle } from "lucide-react";
 
-// Define only the fields you care about for the callback
 interface MinimalTask {
   _id: string;
   progressFields: { title: string; value: string }[];
@@ -45,26 +42,23 @@ export default function ProgressForm({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  // Determine if the button should be disabled
-  const isSubmitDisabled = loading || value === (progressValue || "0%");
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  // This function is called automatically when dropdown changes.
+  async function handleChange(newValue: string) {
+    setValue(newValue);
     setLoading(true);
     setError("");
-    setSuccess(false);
+    
 
     try {
       // Determine new status based on progress
       let status = "in progress";
-      if (value === "0%") status = "pending";
-      if (value === "100%") status = "completed";
+      if (newValue === "0%") status = "pending";
+      if (newValue === "100%") status = "completed";
 
       // Update progress
       const res = await apiFetch(`/tasks/${taskId}/progress`, {
         method: "PATCH",
-        body: JSON.stringify({ title: "Progress", value }),
+        body: JSON.stringify({ title: "Progress", value: newValue }),
         headers: { "Content-Type": "application/json" },
       });
 
@@ -76,7 +70,7 @@ export default function ProgressForm({
           headers: { "Content-Type": "application/json" },
         });
 
-        // Fetch updated task (type as MinimalTask)
+        // Fetch updated task
         const updatedTaskRes = await apiFetch(`/tasks/${taskId}`);
         const updatedTask: MinimalTask | undefined = updatedTaskRes.ok
           ? await updatedTaskRes.json()
@@ -101,73 +95,38 @@ export default function ProgressForm({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-        <TrendingUp className="w-4 h-4" />
-        Update Progress
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4 ">
-        {/* Progress Percentage Select */}
-        <div className="space-y-2">
-          <Label
-            htmlFor="progress-value"
-            className="text-sm font-medium text-gray-700"
-          >
-            Completion Percentage
-          </Label>
-          <div className="flex gap-3">
-            <Select value={value} onValueChange={setValue} disabled={loading}>
-              <SelectTrigger id="progress-value" className="w-full">
-                <SelectValue placeholder="Select progress" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROGRESS_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={isSubmitDisabled}
-              className="w-48 bg-violet-600 hover:bg-violet-500 text-white"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                <>
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Update Progress
-                </>
-              )}
-            </Button>
-          </div>
+    <div className="space-y-2">
+      <Select value={value} onValueChange={handleChange} disabled={loading}>
+        <SelectTrigger id="progress-value" className="w-full">
+          <SelectValue placeholder="Select progress" />
+        </SelectTrigger>
+        <SelectContent>
+          {PROGRESS_OPTIONS.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {/* {loading && (
+        <div className="flex gap-2 items-center text-gray-400 text-xs mt-1">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Updating...
         </div>
-      </form>
-
-      {/* Error Message */}
+      )} */}
       {error && (
         <Alert variant="destructive" className="animate-in slide-in-from-top-2">
           <AlertCircle className="w-4 h-4" />
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
-      {/* Success Message */}
       {success && (
         <Alert className="animate-in slide-in-from-top-2 border-green-200 bg-green-50 text-green-800">
           <AlertDescription className="flex items-center gap-2">
             <div className="w-4 h-4 bg-green-600 rounded-full flex items-center justify-center">
               <span className="text-white text-xs">✓</span>
             </div>
-            Progress updated successfully!
+            Updated
           </AlertDescription>
         </Alert>
       )}

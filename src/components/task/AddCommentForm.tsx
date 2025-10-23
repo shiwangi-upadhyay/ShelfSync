@@ -32,7 +32,7 @@ export default function AddCommentForm({ taskId, onCommentAdded }: AddCommentFor
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-3 items-center mt-2">
+    <form onSubmit={handleSubmit} className="mt-2">
       <Input
         value={text}
         onChange={e => setText(e.target.value)}
@@ -40,7 +40,7 @@ export default function AddCommentForm({ taskId, onCommentAdded }: AddCommentFor
         required
         disabled={loading}
       />
-      <Button type="submit" disabled={loading || !text} className="w-48 bg-violet-600 hover:bg-violet-500 text-white">
+      <Button type="submit" disabled={loading || !text} className="w-34 bg-violet-600 hover:bg-violet-500 text-white mt-2">
         Post
       </Button>
       {error && <div className="text-red-600 text-sm">{error}</div>}

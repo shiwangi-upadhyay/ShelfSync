@@ -171,8 +171,8 @@ import { useParams } from "next/navigation";
 import { apiFetch } from "@/utils/api";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
-import TaskDetailCard from "../task/TaskDetailCard";
-
+// import TaskDetailCard from "../task/TaskDetailCard";
+import TaskTable from "../task/TaskTable";
 
 type User = { _id: string; name: string; email: string; avatarUrl?: string };
 type Task = {
@@ -239,10 +239,19 @@ export default function TeamDetailPage() {
     );
   if (!team || !user) return <div>Team not found.</div>;
 
-  const yourTasks = tasks.filter((task) =>
-    task.assignedTo.some((u) => u._id === user._id)
-  );
+  console.log("Current user ID:", user?._id);
+  tasks.forEach((task) => {
+    console.log(
+      "Task",
+      task._id,
+      "assignedTo:",
+      task.assignedTo.map((u) => u._id)
+    );
+  });
 
+  const yourTasks = tasks.filter((task) =>
+    task.assignedTo.some((u) => String(u._id) === String(user._id))
+  );
   // Refetch tasks after updates
   function refetchTasks() {
     apiFetch(`/tasks/team/${teamId}`).then((res) => {
@@ -252,12 +261,13 @@ export default function TeamDetailPage() {
 
   // Tab content rendering
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-8xl mx-auto">
       {activeTab === "messages" && (
         <div className="text-center text-lg text-gray-400 py-20">
           Coming soon
         </div>
       )}
+
       {activeTab === "tasks" && (
         <div>
           <h2 className="text-2xl font-bold mb-4">Your Tasks</h2>
@@ -266,14 +276,11 @@ export default function TeamDetailPage() {
               No tasks assigned to you.
             </div>
           ) : (
-            yourTasks.map((task) => (
-              <TaskDetailCard
-                key={task._id}
-                task={task}
-                editable={true}
-                onTaskUpdated={refetchTasks}
-              />
-            ))
+            <TaskTable
+              tasks={yourTasks}
+              editable={true}
+              onTaskUpdated={refetchTasks}
+            />
           )}
         </div>
       )}
@@ -283,9 +290,12 @@ export default function TeamDetailPage() {
           {tasks.length === 0 ? (
             <div className="text-muted-foreground">No tasks for this team.</div>
           ) : (
-            tasks.map((task) => (
-              <TaskDetailCard key={task._id} task={task} editable={false} onTaskUpdated={refetchTasks} />
-            ))
+            // <TaskDetailCard key={task._id} task={task} editable={false} onTaskUpdated={refetchTasks} />
+            <TaskTable
+              tasks={tasks}
+              editable={false}
+              onTaskUpdated={refetchTasks}
+            />
           )}
         </div>
       )}

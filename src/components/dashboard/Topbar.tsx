@@ -190,7 +190,6 @@ import {
   Settings,
   ChevronDown,
   Plus,
-  MessageCircle,
   FileText,
   Pin,
 } from "lucide-react";
@@ -391,7 +390,7 @@ export default function Topbar({
       {showTabs && (
         <div className="h-12 flex items-center px-6 bg-gray-50 border-t border-gray-200">
           <nav className="flex items-center gap-1">
-            <Button
+            {/* <Button
               variant="ghost"
               onClick={() => handleTabClick("messages")}
               className={`flex items-center gap-2 px-4 h-9 rounded-lg transition ${
@@ -402,7 +401,7 @@ export default function Topbar({
             >
               <MessageCircle className="w-4 h-4" />
               <span className="text-sm">Messages</span>
-            </Button>
+            </Button> */}
             <Button
               variant="ghost"
               onClick={() => handleTabClick("tasks")}

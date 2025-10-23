@@ -103,9 +103,9 @@ export default function Sidebar() {
   const isActiveTeam = (teamId: string) => pathname.includes(`/teams/${teamId}`);
 
   return (
-    <aside className="w-72 min-h-screen bg-gray-900 flex flex-col border-r border-gray-800 shadow-lg">
+    <aside className="w-64 min-h-screen bg-gray-900 flex flex-col border-r border-gray-800 shadow-lg">
       {/* Workspace Header */}
-      <div className="px-5 py-6 border-b border-gray-800">
+      <div className="px-2 py-6 border-b border-gray-800">
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-3 flex-1 group">
             <div className="w-11 h-11 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg transition-transform group-hover:scale-105">
@@ -129,7 +129,7 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-8">
+      <nav className="flex-1 overflow-y-auto px-2 py-6 space-y-8">
         {/* Teams Section */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-2 mb-3">
@@ -172,7 +172,7 @@ export default function Sidebar() {
                 </span>
                 <Badge
                   variant="secondary"
-                  className="bg-gray-800 text-gray-300 text-xs px-2 py-0.5 border-0"
+                  className="bg-gray-800 text-gray-300 text-xs px-1 py-0.5 border-0"
                 >
                   {team.members.length}
                 </Badge>
