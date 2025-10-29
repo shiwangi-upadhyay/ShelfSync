@@ -370,7 +370,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+// Removed unused Badge import to fix lint warning
+// import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -460,7 +461,12 @@ export default function CreateTaskPage() {
       ]
     : [];
 
-  function handleTaskChange(idx: number, field: keyof TaskForm, value: any) {
+  // Use precise type for `value` to avoid `any` lint error
+  function handleTaskChange(
+    idx: number,
+    field: keyof TaskForm,
+    value: TaskForm[keyof TaskForm]
+  ) {
     setTasks((tasks) =>
       tasks.map((task, i) => (i === idx ? { ...task, [field]: value } : task))
     );
@@ -637,7 +643,7 @@ export default function CreateTaskPage() {
                     colSpan={8}
                     className="text-center py-12 text-gray-500"
                   >
-                    No tasks. Click "Add Row" to create one.
+                    No tasks. Click &quot;Add Row&quot; to create one.
                   </TableCell>
                 </TableRow>
               ) : (

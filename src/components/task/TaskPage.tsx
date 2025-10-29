@@ -78,7 +78,6 @@
 //     </div>
 //   );
 // }
-
 "use client";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
@@ -90,13 +89,27 @@ import { Button } from "@/components/ui/button";
 
 type User = { _id: string; name: string; email?: string; avatarUrl?: string };
 
+type TeamMember = {
+  user: User | string;
+  canCreateTask?: boolean;
+};
+
+type TeamType = {
+  _id?: string;
+  name: string;
+  admin: User | string;
+  members: TeamMember[];
+};
+
 export default function TeamDetailPage() {
   const { teamId } = useParams();
   const teamContext = useTeam();
-  const team = teamContext?.team as any | null;
-  const setTeam = teamContext?.setTeam;
+  // typed context values (avoid any)
+  const team = teamContext?.team as TeamType | null;
+  const setTeam = teamContext?.setTeam as unknown as React.Dispatch<React.SetStateAction<TeamType | null>> | undefined;
   const user = teamContext?.user as User | null;
-  const setUser = teamContext?.setUser;
+  const setUser = teamContext?.setUser as ((u: User) => void) | undefined;
+
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -106,6 +119,10 @@ export default function TeamDetailPage() {
   // admin editing mode and pending edits (batched)
   const [adminEditing, setAdminEditing] = useState(false);
   const [pendingEdits, setPendingEdits] = useState<Record<string, Partial<TaskItem>>>({});
+
+  // helper to get user id from either a string id or a User object
+  const getUserId = (u: User | string | undefined | null): string | undefined =>
+    !u ? undefined : (typeof u === "string" ? u : u._id);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -147,9 +164,10 @@ export default function TeamDetailPage() {
           setUser(me);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("fetchAll error:", err);
-      setError(err.message || "Unknown error");
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -161,40 +179,27 @@ export default function TeamDetailPage() {
   }, [teamId]);
 
   // dedupe + stable allMembers
-  const allMembers = useMemo(() => {
+  const allMembers = useMemo<User[]>(() => {
     if (!team) return [];
     const items: User[] = [];
-    if (team.admin)
-      items.push({
-        _id: String(team.admin._id),
-        name: team.admin.name,
-        email: team.admin.email ?? "",
-        avatarUrl: team.admin.avatarUrl ?? undefined,
-      });
 
-    (team.members || []).forEach((m: any) => {
-      const u = m?.user ?? m;
-      if (u)
-        items.push({
-          _id: String(u._id),
-          name: u.name ?? "Unknown",
-          email: u.email ?? "",
-          avatarUrl: u.avatarUrl ?? undefined,
-        });
+    // admin may be a User obj or string id
+    if (team.admin) {
+      const adminUser: User = typeof team.admin === "string" ? { _id: team.admin, name: "Unknown" } : (team.admin as User);
+      items.push(adminUser);
+    }
+
+    (team.members || []).forEach((m: TeamMember) => {
+      const u = (m.user ?? m) as User | string;
+      const userObj: User = typeof u === "string" ? { _id: u, name: "Unknown" } : (u as User);
+      if (!items.find((it) => it._id === userObj._id)) items.push(userObj);
     });
 
-    const map = new Map<string, User>();
-    for (const u of items) if (!map.has(u._id)) map.set(u._id, u);
-    return Array.from(map.values());
+    return items;
   }, [team]);
 
-  if (loading) return <div className="text-center py-20 text-lg">Loading...</div>;
-  if (forbidden) return <div className="text-center py-24 text-2xl text-red-500">You are not a member of this team.</div>;
-  if (!team) return <div className="text-center py-20 text-lg">Team not found.</div>;
-
-  const isAdmin = Boolean(user && team.admin && String(user._id) === String(team.admin._id));
-
-  const yourTasks = tasks.filter((task) => (task.assignedTo || []).some((u) => String(typeof u === "string" ? u : (u as any)?._id) === String(user?._id)));
+  // --- All hook declarations must be before any early returns ---
+  // Move refetch and callback hooks here so they are always called in the same order.
 
   const refetchTasks = useCallback(async () => {
     try {
@@ -220,25 +225,39 @@ export default function TeamDetailPage() {
     setError(null);
 
     try {
-      const results = await Promise.all(entries.map(async ([taskId, update]) => {
-        const payload: any = { ...update };
-        if (payload.assignedTo) payload.assignedTo = (payload.assignedTo as any[]).map((id) => String(id));
-        try {
-          const res = await apiFetch(`/tasks/${taskId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          const json = await res.json();
-          return { taskId, ok: true, data: json };
-        } catch (err: any) {
-          return { taskId, ok: false, error: err?.message || String(err) };
-        }
-      }));
+      const results = await Promise.all(
+        entries.map(async ([taskId, update]) => {
+          // Use a typed Record to avoid any
+          const payload = { ...(update as Record<string, unknown>) };
 
-      const failed = results.filter(r => !r.ok);
+          // Normalize assignedTo if present (it may be array of strings or objects)
+          if (Array.isArray(payload.assignedTo)) {
+            payload.assignedTo = (payload.assignedTo as unknown[]).map((item) => {
+              if (typeof item === "string") return item;
+              // item might be an object like { _id: "..." }
+              const maybeId = (item as { _id?: string })._id;
+              return typeof maybeId === "string" ? maybeId : String(item);
+            });
+          }
+
+          try {
+            const res = await apiFetch(`/tasks/${taskId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            return { taskId, ok: true, data: json };
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return { taskId, ok: false, error: msg };
+          }
+        })
+      );
+
+      const failed = results.filter((r) => !r.ok);
       if (failed.length > 0) {
-        const msgs = failed.map(f => `${f.taskId}: ${f.error}`).join("; ");
+        const msgs = failed.map((f) => `${f.taskId}: ${f.error}`).join("; ");
         setError(`Failed to update ${failed.length} task(s): ${msgs}`);
         return;
       }
@@ -247,9 +266,10 @@ export default function TeamDetailPage() {
       await fetchAll();
       setPendingEdits({});
       setAdminEditing(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("handleSaveAll unexpected error:", err);
-      setError(err?.message || "Failed to save updates");
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "Failed to save updates");
     } finally {
       setLoading(false);
     }
@@ -259,6 +279,18 @@ export default function TeamDetailPage() {
     setPendingEdits({});
     setAdminEditing(false);
   }, []);
+
+  // --- Now it's safe to do early returns based on state ---
+  if (loading) return <div className="text-center py-20 text-lg">Loading...</div>;
+  if (forbidden) return <div className="text-center py-24 text-2xl text-red-500">You are not a member of this team.</div>;
+  if (!team) return <div className="text-center py-20 text-lg">Team not found.</div>;
+
+  const isAdmin = Boolean(user && team.admin && String(user._id) === String((team.admin as User)._id));
+
+  // normalize assignedTo contents when checking yourTasks (handles both User objects and string ids)
+  const yourTasks = tasks.filter((task) =>
+    (task.assignedTo || []).some((u) => getUserId(typeof u === "string" ? u : (u as User)) === user?._id)
+  );
 
   return (
     <div className="max-w-8xl mx-auto">
@@ -291,7 +323,7 @@ export default function TeamDetailPage() {
           onTaskUpdated={() => refetchTasks()}
           allMembers={allMembers}
           me={user!}
-          teamAdmin={team.admin}
+          teamAdmin={team.admin as User}
         />
       )}
 
@@ -304,7 +336,7 @@ export default function TeamDetailPage() {
           onTaskUpdated={() => refetchTasks()}
           allMembers={allMembers}
           me={user!}
-          teamAdmin={team.admin}
+          teamAdmin={team.admin as User}
         />
       )}
 

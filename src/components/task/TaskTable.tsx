@@ -52,8 +52,6 @@ interface TaskTableProps {
   allMembers: User[];
   me: User;
   teamAdmin: User;
-  // when true, allow the logged in assignee(s) to update status and progress
-  // immediately (used for "your tasks" view)
   allowAssigneeEdits?: boolean;
 }
 
@@ -72,22 +70,33 @@ export default function TaskTable({
 
   // notify parent after localEdits changes (avoids setState during render)
   useEffect(() => {
-    if (onEditingStateChange) onEditingStateChange(localEdits);
+    if (onEditingStateChange) {
+      onEditingStateChange(localEdits);
+    }
   }, [localEdits, onEditingStateChange]);
 
+  // Clear local edits when editing mode ends
   useEffect(() => {
     if (!editingMode) {
       setLocalEdits({});
-      if (onEditingStateChange) onEditingStateChange({});
+      if (onEditingStateChange) {
+        onEditingStateChange({});
+      }
     }
   }, [editingMode, onEditingStateChange]);
 
   const isAdmin = Boolean(me && teamAdmin && String(me._id) === String(teamAdmin._id) && editable);
 
-  const comboboxMembers = useMemo(() => allMembers.map((u) => ({ user: u })), [allMembers]);
+  type MemberOption = { user: User };
+  const comboboxMembers = useMemo<MemberOption[]>(() => allMembers.map((u) => ({ user: u })), [allMembers]);
 
-  const getValue = useCallback(<K extends keyof TaskItem>(task: TaskItem, field: K) => {
-    return (localEdits[task._id] && (localEdits[task._id] as any)[field]) ?? (task as any)[field];
+  const getValue = useCallback(<K extends keyof TaskItem>(task: TaskItem, field: K): TaskItem[K] => {
+    const pending = localEdits[task._id] as Partial<TaskItem> | undefined;
+    if (pending && Object.prototype.hasOwnProperty.call(pending, field)) {
+      // safe cast: pending[field] is Partial<TaskItem>[K], but we want TaskItem[K]
+      return (pending[field] as unknown) as TaskItem[K];
+    }
+    return task[field];
   }, [localEdits]);
 
   const setPendingField = useCallback(<K extends keyof TaskItem>(taskId: string, field: K, value: TaskItem[K]) => {
@@ -112,9 +121,10 @@ export default function TaskTable({
       });
       if (res.ok) {
         const updated = await res.json();
-        if (onTaskUpdated) onTaskUpdated(updated as TaskItem);
+        if (onTaskUpdated) {
+          onTaskUpdated(updated as TaskItem);
+        }
       } else {
-        // no-op; in a full app you'd surface this to the user
         console.error("Failed to update status for", taskId, "status", value);
       }
     } catch (err) {
@@ -122,9 +132,7 @@ export default function TaskTable({
     }
   }, [onTaskUpdated]);
 
-  const isMember = useMemo(() => {
-    return allMembers.some(m => String(m._id) === String(me._id));
-  }, [allMembers, me._id]);
+  const isMember = useMemo(() => allMembers.some(m => String(m._id) === String(me._id)), [allMembers, me._id]);
 
   return (
     <div className="overflow-hidden bg-white">
@@ -150,8 +158,11 @@ export default function TaskTable({
         <TableBody>
           {tasks.map((task, idx) => {
             const assignedToRaw = getValue(task, "assignedTo") as (User | string)[] | undefined;
-            const assignedIds = Array.isArray(assignedToRaw) ? assignedToRaw.map(a => typeof a === "string" ? a : (a as User)._id) : [];
-            const assignedUsers = assignedIds.map(id => allMembers.find(m => String(m._id) === String(id)) || { _id: id, name: "Unknown" });
+            const assignedIds = Array.isArray(assignedToRaw) ? assignedToRaw.map(a => typeof a === "string" ? a : a._id) : [];
+            const assignedUsers = assignedIds.map(id => {
+              const found = allMembers.find(m => String(m._id) === String(id));
+              return found ?? ({ _id: id, name: "Unknown" } as User);
+            });
             const lastProgress = task.progressFields && task.progressFields.length ? task.progressFields[task.progressFields.length -1].value : "0%";
             const comments = task.comments ?? [];
             const commentsCount = comments.length;
@@ -162,15 +173,20 @@ export default function TaskTable({
 
                 <TableCell>
                   {editingMode && isAdmin ? (
-                    <MemberMultiCombobox members={comboboxMembers} value={assignedIds} onChange={(ids) => setPendingField(task._id, "assignedTo", ids as any)} widthClassName="w-56" />
+                    <MemberMultiCombobox
+                      members={comboboxMembers}
+                      value={assignedIds}
+                      onChange={(ids: string[]) => setPendingField(task._id, "assignedTo", ids as unknown as TaskItem["assignedTo"])}
+                      widthClassName="w-56"
+                    />
                   ) : (
                     <div className="flex items-center gap-2 flex-wrap">
                       {assignedUsers.length > 0 ? assignedUsers.map(u => (
-                        <div key={String((u as any)._id)} className="flex items-center gap-2 mr-3">
+                        <div key={String(u._id)} className="flex items-center gap-2 mr-3">
                           <Avatar className="w-6 h-6 bg-violet-50 text-violet-700 border border-violet-300">
-                            {(u as any).avatarUrl ? <AvatarImage src={(u as any).avatarUrl} alt={(u as any).name} /> : <AvatarFallback className="text-xs">{getInitials((u as any).name)}</AvatarFallback>}
+                            {u.avatarUrl ? <AvatarImage src={u.avatarUrl} alt={u.name} /> : <AvatarFallback className="text-xs">{getInitials(u.name)}</AvatarFallback>}
                           </Avatar>
-                          <span className="text-sm">{(u as any).name}</span>
+                          <span className="text-sm">{u.name}</span>
                         </div>
                       )) : <span className="text-sm text-gray-500">Unassigned</span>}
                     </div>
@@ -213,7 +229,6 @@ export default function TaskTable({
                       </SelectContent>
                     </Select>
                   ) : (
-                    // allow assignees to update status directly for "your tasks"
                     (allowAssigneeEdits && assignedIds.includes(String(me._id))) ? (
                       <Select value={String(getValue(task, "status") ?? task.status)} onValueChange={(val) => handleAssigneeStatusChange(task._id, val)}>
                         <SelectTrigger>{String(getValue(task, "status") ?? task.status)}</SelectTrigger>

@@ -175,13 +175,27 @@ import { Button } from "@/components/ui/button";
 
 type User = { _id: string; name: string; email?: string; avatarUrl?: string };
 
+type TeamMember = {
+  user: User | string;
+  canCreateTask?: boolean;
+};
+
+type TeamType = {
+  _id?: string;
+  name: string;
+  admin: User | string;
+  members: TeamMember[];
+};
+
 export default function TeamDetailPage() {
   const { teamId } = useParams();
   const teamContext = useTeam();
-  const team = teamContext?.team as any | null;
-  const setTeam = teamContext?.setTeam;
+  // typed context values (avoid any)
+  const team = teamContext?.team as TeamType | null;
+  const setTeam = teamContext?.setTeam as unknown as React.Dispatch<React.SetStateAction<TeamType | null>> | undefined;
   const user = teamContext?.user as User | null;
-  const setUser = teamContext?.setUser;
+  const setUser = teamContext?.setUser as unknown as React.Dispatch<React.SetStateAction<User | null>> | undefined;
+
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -194,15 +208,14 @@ export default function TeamDetailPage() {
 
   // fetchAll: stable, memoized callback
   const fetchAll = useCallback(async () => {
-    // at start of fetchAll
-console.debug("[TeamDetailPage] NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
-console.debug("[TeamDetailPage] teamId param:", teamId);
-if (!teamId) {
-  console.error("[TeamDetailPage] teamId is undefined — aborting fetchAll");
-  setLoading(false);
-  setError("Team identifier missing in URL");
-  return;
-}
+    console.debug("[TeamDetailPage] NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+    console.debug("[TeamDetailPage] teamId param:", teamId);
+    if (!teamId) {
+      console.error("[TeamDetailPage] teamId is undefined — aborting fetchAll");
+      setLoading(false);
+      setError("Team identifier missing in URL");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -220,10 +233,7 @@ if (!teamId) {
 
       if (teamRes.ok) {
         const teamData = await teamRes.json();
-        // Guard: only update context if changed to avoid loops
-        console.debug("[TeamDetailPage] fetched team id:", teamData?._id, "current team id:", team?._id);
         if (setTeam && (!team || String(team._id) !== String(teamData._id))) {
-          console.debug("[TeamDetailPage] calling setTeam()");
           setTeam(teamData);
         }
       } else {
@@ -233,7 +243,6 @@ if (!teamId) {
 
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
-        console.debug("[TeamDetailPage] fetched tasks count:", (tasksData || []).length);
         setTasks(tasksData);
       } else {
         const text = await tasksRes.text();
@@ -242,17 +251,14 @@ if (!teamId) {
 
       if (meRes.ok) {
         const me = await meRes.json();
-        console.debug("[TeamDetailPage] fetched me id:", me?._id, "current user id:", user?._id);
         if (setUser && (!user || String(user._id) !== String(me._id))) {
-          console.debug("[TeamDetailPage] calling setUser()");
           setUser(me);
         }
-      } else {
-        console.warn("Failed to fetch /me:", meRes.status);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("fetchAll error:", err);
-      setError(err.message || "Unknown error");
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -286,31 +292,46 @@ if (!teamId) {
       return;
     }
     setLoading(true);
+    setError(null);
+
     try {
-      const promises = entries.map(async ([taskId, update]) => {
-        const payload: any = { ...update };
-        if (payload.assignedTo) payload.assignedTo = (payload.assignedTo as any[]).map((id) => String(id));
-        const res = await apiFetch(`/tasks/${taskId}`, {
-          method: "PATCH",
-          body: JSON.stringify(payload),
-          headers: { "Content-Type": "application/json" },
-        });
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(`Failed to update ${taskId}: ${res.status} ${txt}`);
-        }
-        return res.json();
-      });
+      const results = await Promise.all(
+        entries.map(async ([taskId, update]) => {
+          // payload typed as unknown-record to avoid any
+          const payload: Record<string, unknown> = { ...(update as Record<string, unknown>) };
+          if (Array.isArray(payload.assignedTo)) {
+            payload.assignedTo = (payload.assignedTo as unknown[]).map((id) => String(id));
+          }
+          try {
+            const res = await apiFetch(`/tasks/${taskId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            return { taskId, ok: true, data: json };
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            return { taskId, ok: false, error: msg };
+          }
+        })
+      );
 
-      await Promise.all(promises);
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length > 0) {
+        const msgs = failed.map((f) => `${f.taskId}: ${f.error}`).join("; ");
+        setError(`Failed to update ${failed.length} task(s): ${msgs}`);
+        return;
+      }
 
-      // refresh after save
+      // all succeeded
       await fetchAll();
       setPendingEdits({});
       setAdminEditing(false);
-    } catch (err: any) {
-      console.error("handleSaveAll error:", err);
-      setError(err.message || "Failed to save updates");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("handleSaveAll unexpected error:", msg);
+      setError(msg || "Failed to save updates");
     } finally {
       setLoading(false);
     }
@@ -327,46 +348,34 @@ if (!teamId) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [teamId]);
 
-  // dedupe + stable allMembers (useMemo) - declared unconditionally
-  const allMembers = useMemo(() => {
+  // dedupe + stable allMembers (useMemo)
+  const allMembers = useMemo<User[]>(() => {
     if (!team) return [];
     const items: User[] = [];
-    if (team.admin)
-      items.push({
-        _id: String(team.admin._id),
-        name: team.admin.name,
-        email: team.admin.email ?? "",
-        avatarUrl: team.admin.avatarUrl ?? undefined,
-      });
 
-    (team.members || []).forEach((m: any) => {
-      const u = m?.user ?? m;
-      if (u)
-        items.push({
-          _id: String(u._id),
-          name: u.name ?? "Unknown",
-          email: u.email ?? "",
-          avatarUrl: u.avatarUrl ?? undefined,
-        });
+    if (team.admin) {
+      const adminUser: User = typeof team.admin === "string" ? { _id: team.admin, name: "Unknown" } : (team.admin as User);
+      items.push(adminUser);
+    }
+
+    (team.members || []).forEach((m) => {
+      const u = (m.user ?? m) as User | string;
+      const userObj: User = typeof u === "string" ? { _id: u, name: "Unknown" } : (u as User);
+      if (!items.find((it) => it._id === userObj._id)) items.push(userObj);
     });
 
-    const map = new Map<string, User>();
-    for (const u of items) if (!map.has(u._id)) map.set(u._id, u);
-    return Array.from(map.values());
+    return items;
   }, [team]);
 
-  // UI early returns (safe because all hooks are declared above)
+  // UI early returns (hooks are declared above)
   if (loading) return <div className="text-center py-20 text-lg">Loading...</div>;
-  if (forbidden)
-    return (
-      <div className="text-center py-24 text-2xl text-red-500">You are not a member of this team.</div>
-    );
+  if (forbidden) return <div className="text-center py-24 text-2xl text-red-500">You are not a member of this team.</div>;
   if (!team) return <div className="text-center py-20 text-lg">Team not found.</div>;
 
-  const isAdmin = Boolean(user && team.admin && String(user._id) === String(team.admin._id));
+  const isAdmin = Boolean(user && team.admin && String(user._id) === String((team.admin as User)._id));
 
   const yourTasks = tasks.filter((task) =>
-    (task.assignedTo || []).some((u) => String(typeof u === "string" ? u : (u as any)?._id) === String(user?._id))
+    (task.assignedTo || []).some((u) => String(typeof u === "string" ? u : (u as User)._id) === String(user?._id))
   );
 
   return (
@@ -394,8 +403,6 @@ if (!teamId) {
       {activeTab === "tasks" && (
         <TaskTable
           tasks={yourTasks}
-          // Your tasks: not the admin batch editable table. Allow assignees
-          // to update only status and progress.
           editable={false}
           editingMode={adminEditing}
           allowAssigneeEdits={true}
@@ -403,7 +410,7 @@ if (!teamId) {
           onTaskUpdated={() => refetchTasks()}
           allMembers={allMembers}
           me={user!}
-          teamAdmin={team.admin}
+          teamAdmin={team.admin as User}
         />
       )}
 
@@ -417,7 +424,7 @@ if (!teamId) {
           onTaskUpdated={() => refetchTasks()}
           allMembers={allMembers}
           me={user!}
-          teamAdmin={team.admin}
+          teamAdmin={team.admin as User}
         />
       )}
 
