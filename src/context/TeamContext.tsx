@@ -1,5 +1,13 @@
 "use client";
-import { createContext, useContext, useState, Dispatch, SetStateAction, ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  Dispatch,
+  SetStateAction,
+  ReactNode,
+  useMemo,
+} from "react";
 
 type User = {
   _id: string;
@@ -22,18 +30,21 @@ type TeamContextType = {
   setUser: Dispatch<SetStateAction<User | null>>;
 };
 
-export const TeamContext = createContext<TeamContextType | undefined>(undefined);
+const TeamContext = createContext<TeamContextType | undefined>(undefined);
 
 export function TeamProvider({ children }: { children: ReactNode }) {
   const [team, setTeam] = useState<Team | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  return (
-    <TeamContext.Provider value={{ team, setTeam, user, setUser }}>
-      {children}
-    </TeamContext.Provider>
-  );
+
+  // Memoize the entire context value so it only changes when team or user actually change.
+  const value = useMemo(() => ({ team, setTeam, user, setUser }), [team, user]);
+
+  return <TeamContext.Provider value={value}>{children}</TeamContext.Provider>;
 }
 
 export function useTeam() {
-  return useContext(TeamContext);
+  const ctx = useContext(TeamContext);
+  if (!ctx) throw new Error("useTeam must be used inside TeamProvider");
+  return ctx;
 }
+export default TeamContext;

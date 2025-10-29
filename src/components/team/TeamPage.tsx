@@ -164,141 +164,264 @@
 //     </div>
 //   );
 // }
-
 "use client";
-import { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiFetch } from "@/utils/api";
 import { useTeam } from "@/context/TeamContext";
 import { useTab } from "@/context/TabContext";
-// import TaskDetailCard from "../task/TaskDetailCard";
-import TaskTable from "../task/TaskTable";
+import TaskTable, { TaskItem } from "@/components/task/TaskTable";
+import { Button } from "@/components/ui/button";
 
-type User = { _id: string; name: string; email: string; avatarUrl?: string };
-type Task = {
-  _id: string;
-  desc: string;
-  status: string;
-  priority: string;
-  assignedTo: User[];
-  startDate?: string;
-  endDate?: string;
-  progressFields: { title: string; value: string }[];
-  comments: { text: string; by: { name: string } }[];
-};
+type User = { _id: string; name: string; email?: string; avatarUrl?: string };
 
 export default function TeamDetailPage() {
   const { teamId } = useParams();
   const teamContext = useTeam();
-  const team = teamContext?.team;
+  const team = teamContext?.team as any | null;
   const setTeam = teamContext?.setTeam;
-  const user = teamContext?.user;
+  const user = teamContext?.user as User | null;
   const setUser = teamContext?.setUser;
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { activeTab } = useTab();
 
-  // Fetch team, user, and tasks
-  useEffect(() => {
-    let isMounted = true;
-    async function fetchAll() {
-      const teamRes = await apiFetch(`/teams/${teamId}`);
-      if (!isMounted) return;
+  // admin editing mode and pending edits
+  const [adminEditing, setAdminEditing] = useState(false);
+  const [pendingEdits, setPendingEdits] = useState<Record<string, Partial<TaskItem>>>({});
+
+  // fetchAll: stable, memoized callback
+  const fetchAll = useCallback(async () => {
+    // at start of fetchAll
+console.debug("[TeamDetailPage] NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+console.debug("[TeamDetailPage] teamId param:", teamId);
+if (!teamId) {
+  console.error("[TeamDetailPage] teamId is undefined — aborting fetchAll");
+  setLoading(false);
+  setError("Team identifier missing in URL");
+  return;
+}
+    setLoading(true);
+    setError(null);
+    try {
+      const [teamRes, tasksRes, meRes] = await Promise.all([
+        apiFetch(`/teams/${teamId}`),
+        apiFetch(`/tasks/team/${teamId}`),
+        apiFetch("/me"),
+      ]);
+
       if (teamRes.status === 403) {
         setForbidden(true);
         setLoading(false);
         return;
       }
+
       if (teamRes.ok) {
         const teamData = await teamRes.json();
-        if (setTeam) setTeam(teamData);
-        // Fetch tasks for this team
-        const tasksRes = await apiFetch(`/tasks/team/${teamId}`);
-        if (tasksRes.ok) setTasks(await tasksRes.json());
+        // Guard: only update context if changed to avoid loops
+        console.debug("[TeamDetailPage] fetched team id:", teamData?._id, "current team id:", team?._id);
+        if (setTeam && (!team || String(team._id) !== String(teamData._id))) {
+          console.debug("[TeamDetailPage] calling setTeam()");
+          setTeam(teamData);
+        }
+      } else {
+        const text = await teamRes.text();
+        throw new Error(`Failed to fetch team: ${teamRes.status} ${text}`);
       }
-      // Fetch current user
-      const userRes = await apiFetch("/me");
-      if (userRes.ok && setUser) setUser(await userRes.json());
 
+      if (tasksRes.ok) {
+        const tasksData = await tasksRes.json();
+        console.debug("[TeamDetailPage] fetched tasks count:", (tasksData || []).length);
+        setTasks(tasksData);
+      } else {
+        const text = await tasksRes.text();
+        throw new Error(`Failed to fetch tasks: ${tasksRes.status} ${text}`);
+      }
+
+      if (meRes.ok) {
+        const me = await meRes.json();
+        console.debug("[TeamDetailPage] fetched me id:", me?._id, "current user id:", user?._id);
+        if (setUser && (!user || String(user._id) !== String(me._id))) {
+          console.debug("[TeamDetailPage] calling setUser()");
+          setUser(me);
+        }
+      } else {
+        console.warn("Failed to fetch /me:", meRes.status);
+      }
+    } catch (err: any) {
+      console.error("fetchAll error:", err);
+      setError(err.message || "Unknown error");
+    } finally {
       setLoading(false);
     }
-    fetchAll();
-    return () => {
-      isMounted = false;
-    };
-  }, [teamId, setTeam, setUser]);
+  }, [teamId, setTeam, setUser, team, user]);
 
-  if (loading)
-    return <div className="text-center py-20 text-lg">Loading...</div>;
+  // refetchTasks must be a hook (useCallback) and must be declared unconditionally
+  const refetchTasks = useCallback(async () => {
+    console.debug("[TeamDetailPage] refetchTasks invoked");
+    try {
+      const res = await apiFetch(`/tasks/team/${teamId}`);
+      console.debug("[TeamDetailPage] refetchTasks response ok:", res.ok);
+      if (res.ok) {
+        const data = await res.json();
+        console.debug("[TeamDetailPage] refetchTasks setTasks count:", data.length);
+        setTasks(data);
+      }
+    } catch (err) {
+      console.error("[TeamDetailPage] refetchTasks error:", err);
+    }
+  }, [teamId]);
+
+  // batch editing handlers - stable callbacks declared unconditionally
+  const handleEditingStateChange = useCallback((state: Record<string, Partial<TaskItem>>) => {
+    setPendingEdits(state);
+  }, []);
+
+  const handleSaveAll = useCallback(async () => {
+    const entries = Object.entries(pendingEdits);
+    if (entries.length === 0) {
+      setAdminEditing(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const promises = entries.map(async ([taskId, update]) => {
+        const payload: any = { ...update };
+        if (payload.assignedTo) payload.assignedTo = (payload.assignedTo as any[]).map((id) => String(id));
+        const res = await apiFetch(`/tasks/${taskId}`, {
+          method: "PATCH",
+          body: JSON.stringify(payload),
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(`Failed to update ${taskId}: ${res.status} ${txt}`);
+        }
+        return res.json();
+      });
+
+      await Promise.all(promises);
+
+      // refresh after save
+      await fetchAll();
+      setPendingEdits({});
+      setAdminEditing(false);
+    } catch (err: any) {
+      console.error("handleSaveAll error:", err);
+      setError(err.message || "Failed to save updates");
+    } finally {
+      setLoading(false);
+    }
+  }, [pendingEdits, fetchAll]);
+
+  const handleCancelEdit = useCallback(() => {
+    setPendingEdits({});
+    setAdminEditing(false);
+  }, []);
+
+  // fetch on mount / teamId changes
+  useEffect(() => {
+    fetchAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamId]);
+
+  // dedupe + stable allMembers (useMemo) - declared unconditionally
+  const allMembers = useMemo(() => {
+    if (!team) return [];
+    const items: User[] = [];
+    if (team.admin)
+      items.push({
+        _id: String(team.admin._id),
+        name: team.admin.name,
+        email: team.admin.email ?? "",
+        avatarUrl: team.admin.avatarUrl ?? undefined,
+      });
+
+    (team.members || []).forEach((m: any) => {
+      const u = m?.user ?? m;
+      if (u)
+        items.push({
+          _id: String(u._id),
+          name: u.name ?? "Unknown",
+          email: u.email ?? "",
+          avatarUrl: u.avatarUrl ?? undefined,
+        });
+    });
+
+    const map = new Map<string, User>();
+    for (const u of items) if (!map.has(u._id)) map.set(u._id, u);
+    return Array.from(map.values());
+  }, [team]);
+
+  // UI early returns (safe because all hooks are declared above)
+  if (loading) return <div className="text-center py-20 text-lg">Loading...</div>;
   if (forbidden)
     return (
-      <div className="text-center py-24 text-2xl text-red-500">
-        You are not a member of this team.
-      </div>
+      <div className="text-center py-24 text-2xl text-red-500">You are not a member of this team.</div>
     );
-  if (!team || !user) return <div>Team not found.</div>;
+  if (!team) return <div className="text-center py-20 text-lg">Team not found.</div>;
 
-  console.log("Current user ID:", user?._id);
-  tasks.forEach((task) => {
-    console.log(
-      "Task",
-      task._id,
-      "assignedTo:",
-      task.assignedTo.map((u) => u._id)
-    );
-  });
+  const isAdmin = Boolean(user && team.admin && String(user._id) === String(team.admin._id));
 
   const yourTasks = tasks.filter((task) =>
-    task.assignedTo.some((u) => String(u._id) === String(user._id))
+    (task.assignedTo || []).some((u) => String(typeof u === "string" ? u : (u as any)?._id) === String(user?._id))
   );
-  // Refetch tasks after updates
-  function refetchTasks() {
-    apiFetch(`/tasks/team/${teamId}`).then((res) => {
-      if (res.ok) res.json().then(setTasks);
-    });
-  }
 
-  // Tab content rendering
   return (
     <div className="max-w-8xl mx-auto">
-      {activeTab === "messages" && (
-        <div className="text-center text-lg text-gray-400 py-20">
-          Coming soon
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h1 className="text-2xl font-bold">Team: {team.name}</h1>
+          <p className="text-sm text-gray-500">Manage tasks and members</p>
         </div>
-      )}
+
+        {isAdmin && activeTab === "all" && (
+          <div className="flex items-center gap-2">
+            {!adminEditing ? (
+              <Button onClick={() => setAdminEditing(true)} variant="outline">Edit</Button>
+            ) : (
+              <>
+                <Button onClick={handleCancelEdit} variant="ghost">Back</Button>
+                <Button onClick={handleSaveAll} variant="secondary">Update</Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       {activeTab === "tasks" && (
-        <div>
-          <h2 className="text-2xl font-bold mb-4">Your Tasks</h2>
-          {yourTasks.length === 0 ? (
-            <div className="text-muted-foreground">
-              No tasks assigned to you.
-            </div>
-          ) : (
-            <TaskTable
-              tasks={yourTasks}
-              editable={true}
-              onTaskUpdated={refetchTasks}
-            />
-          )}
-        </div>
+        <TaskTable
+          tasks={yourTasks}
+          // Your tasks: not the admin batch editable table. Allow assignees
+          // to update only status and progress.
+          editable={false}
+          editingMode={adminEditing}
+          allowAssigneeEdits={true}
+          onEditingStateChange={handleEditingStateChange}
+          onTaskUpdated={() => refetchTasks()}
+          allMembers={allMembers}
+          me={user!}
+          teamAdmin={team.admin}
+        />
       )}
+
       {activeTab === "all" && (
-        <div>
-          <h2 className="text-2xl font-bold mb-4">All Tasks</h2>
-          {tasks.length === 0 ? (
-            <div className="text-muted-foreground">No tasks for this team.</div>
-          ) : (
-            // <TaskDetailCard key={task._id} task={task} editable={false} onTaskUpdated={refetchTasks} />
-            <TaskTable
-              tasks={tasks}
-              editable={false}
-              onTaskUpdated={refetchTasks}
-            />
-          )}
-        </div>
+        <TaskTable
+          tasks={tasks}
+          editable={isAdmin}
+          editingMode={adminEditing}
+          allowAssigneeEdits={false}
+          onEditingStateChange={handleEditingStateChange}
+          onTaskUpdated={() => refetchTasks()}
+          allMembers={allMembers}
+          me={user!}
+          teamAdmin={team.admin}
+        />
       )}
+
+      {error && <div className="mt-4 text-sm text-red-600">Error: {error}</div>}
     </div>
   );
 }
